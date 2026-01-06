@@ -1,0 +1,14 @@
+{
+  "name": "kakao-bot-skill-server",
+  "version": "1.0.0",
+  "description": "카카오톡 챗봇 간단한 스킬 서버",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.4.0"
+  }
+}
