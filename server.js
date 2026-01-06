@@ -35,56 +35,89 @@ app.post('/skill/greeting', (req, res) => {
   res.json(response);
 });
 
-// 계산 스킬
-app.post('/skill/calculate', (req, res) => {
-  const userInput = req.body.userRequest.utterance;
+// 객실 검색 스킬 (캐로셀 + 아이템 카드)
+app.post('/skill/room-search', (req, res) => {
+  // 입실일, 퇴실일 파라미터 추출
+  const checkInDate = req.body.action?.params?.checkInDate || "2026-01-10";
+  const checkOutDate = req.body.action?.params?.checkOutDate || "2026-01-12";
   
-  // 예: "2더하기3" -> 2+3 = 5
-  let result;
-  try {
-    // 간단한 계산 (eval은 실제로는 보안상 위험하므로 주의)
-    const expression = userInput
-      .replace(/더하기/g, '+')
-      .replace(/빼기/g, '-')
-      .replace(/곱하기/g, '*')
-      .replace(/나누기/g, '/');
-    
-    result = eval(expression);
-  } catch (error) {
-    result = '계산할 수 없습니다';
-  }
+  // 더미 객실 데이터
+  const rooms = [
+    {
+      id: 1,
+      name: "디럭스 싱글룸",
+      price: "150,000원",
+      image: "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&h=300&fit=crop",
+      description: "넓은 창문으로 밝은 채광, 프리미엄 침구류"
+    },
+    {
+      id: 2,
+      name: "디럭스 더블룸",
+      price: "200,000원",
+      image: "https://images.unsplash.com/photo-1570129477492-45a003537e1f?w=400&h=300&fit=crop",
+      description: "킹사이즈 침대, 도시 전망"
+    },
+    {
+      id: 3,
+      name: "스탠다드 트윈룸",
+      price: "170,000원",
+      image: "https://images.unsplash.com/photo-1590073242678-70414c7e63a2?w=400&h=300&fit=crop",
+      description: "분리된 침대 2개, 가족 단위 여행객 추천"
+    },
+    {
+      id: 4,
+      name: "주니어 스위트",
+      price: "280,000원",
+      image: "https://images.unsplash.com/photo-1512631516975-590b458cda59?w=400&h=300&fit=crop",
+      description: "거실 공간이 있는 넓은 방"
+    },
+    {
+      id: 5,
+      name: "디럭스 스위트",
+      price: "350,000원",
+      image: "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400&h=300&fit=crop",
+      description: "침실과 거실, 욕실 분리, 최고급 시설"
+    },
+    {
+      id: 6,
+      name: "로열 스위트",
+      price: "500,000원",
+      image: "https://images.unsplash.com/photo-1454496522488-7a8e488e8606?w=400&h=300&fit=crop",
+      description: "최상위 시설, 전용 라운지 접근권"
+    }
+  ];
   
-  const response = {
-    version: "2.0",
-    template: {
-      outputs: [
+  // 캐로셀 아이템 생성
+  const items = rooms.map(room => ({
+    itemCard: {
+      title: room.name,
+      description: room.description,
+      image: {
+        imageUrl: room.image,
+        altText: room.name
+      },
+      itemList: [
         {
-          simpleText: {
-            text: `계산 결과: ${result}`
-          }
+          title: "가격",
+          description: room.price
         }
       ]
     }
-  };
-  
-  res.json(response);
-});
-
-// 날씨 정보 스킬 (더미 데이터)
-app.post('/skill/weather', (req, res) => {
-  const weatherData = {
-    city: "서울",
-    temp: "15°C",
-    description: "맑음"
-  };
+  }));
   
   const response = {
     version: "2.0",
     template: {
       outputs: [
         {
+          carousel: {
+            type: "itemCard",
+            items: items
+          }
+        },
+        {
           simpleText: {
-            text: `${weatherData.city} 날씨: ${weatherData.temp}, ${weatherData.description}`
+            text: `입실: ${checkInDate} | 퇴실: ${checkOutDate}`
           }
         }
       ]
@@ -104,7 +137,6 @@ app.listen(PORT, () => {
   console.log(`카카오톡 봇 스킬 서버가 http://localhost:${PORT} 에서 실행 중입니다.`);
   console.log('\n사용 가능한 스킬:');
   console.log('- POST /skill/greeting : 인사말');
-  console.log('- POST /skill/calculate : 계산');
-  console.log('- POST /skill/weather : 날씨');
+  console.log('- POST /skill/room-search : 객실 검색 (캐로셀)');
   console.log('- GET /health : 상태 확인\n');
 });
