@@ -87,33 +87,116 @@ app.post('/skill/room-search', (req, res) => {
     }
   ];
   
-  // 캐로셀 아이템 생성
-  const items = rooms.map(room => ({
-    itemCard: {
-    title: room.name,
-    description: room.description,
-    thumbnail: {
-      imageUrl: room.image,
-      altText: room.name
-    },
-    itemList: [
-      { 
-        title: "가격", 
-        description: room.price 
+const response = {
+  "version": "2.0",
+  "template": {
+    "outputs": [
+        {
+            "simpleText": {
+                "text": `입실: ${checkInDate} | 퇴실: ${checkOutDate}`
+            }
+          },
+      {
+        "carousel": {
+          "type": "itemCard",
+          "items": [
+            {
+              "imageTitle": {
+                "title": "예약 완료",
+                "imageUrl" : "https://t1.kakaocdn.net/openbuilder/docs_image/wine.jpg"
+              },
+              "itemList": [
+                {
+                  "title": "매장명",
+                  "description": "판교 A스퀘어점"
+                },
+                {
+                  "title": "예약 일시",
+                  "description": "2022.12.25, 19:30"
+                },
+                {
+                  "title" : "예약 인원",
+                  "description" : "4명"
+                },
+                {
+                  "title" : "예약금",
+                  "description" : "40,000원 (결제 완료)"
+                }
+              ],
+              "itemListAlignment": "left",
+              "buttons": [
+                {
+                  "label": "예약 정보",
+                  "action": "message",
+                  "messageText" : "예약 정보"
+                },
+                {
+                  "label": "예약 취소",
+                  "action": "message",
+                  "messageText": "예약 취소"
+                }
+              ]
+            },
+            {
+              "imageTitle": {
+                "title": "결제 대기",
+                "imageUrl": "https://t1.kakaocdn.net/openbuilder/docs_image/pizza.jpg"
+              },
+              "itemList": [
+                {
+                  "title": "매장명",
+                  "description": "정자역점"
+                },
+                {
+                  "title": "예약 일시",
+                  "description": "2022.12.25, 19:25"
+                },
+                {
+                  "title" : "예약 인원",
+                  "description" : "3명"
+                },
+                {
+                  "title" : "예약금",
+                  "description" : "30,000원 (결제 대기)"
+                }
+              ],
+              "itemListAlignment": "left",
+              "buttons": [
+                {
+                  "label": "예약 취소",
+                  "action": "message",
+                  "messageText" : "예약 취소"
+                },
+                {
+                  "label": "결제",
+                  "action": "message",
+                  "messageText": "결제"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "quickReplies": [
+      {
+        "messageText": "인기 메뉴",
+        "action": "message",
+        "label": "인기 메뉴"
+      },
+      {
+        "messageText": "최근 주문",
+        "action": "message",
+        "label": "최근 주문"
+      },
+      {
+        "messageText": "장바구니",
+        "action": "message",
+        "label": "장바구니"
       }
     ]
   }
-}));
-
-const response = {
-  version: "2.0",
-  template: {
-    outputs: [
-      { carousel: { type: "itemCard", items } },
-      { simpleText: { text: `입실: ${checkInDate} | 퇴실: ${checkOutDate}` } }
-    ]
-  }
-};
+}
   
   res.json(response);
 });
