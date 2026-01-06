@@ -201,6 +201,25 @@ const response = {
   res.json(response);
 });
 
+// 예약 요청 스킬
+app.post('/skill/room-booking', (req, res) => {
+  // 예약 확정 응답
+  const response = {
+    version: "2.0",
+    template: {
+      outputs: [
+        {
+          simpleText: {
+            text: `✅ 예약이 확정되었습니다!\n즐거운 여행 되세요!`
+          }
+        }
+      ]
+    }
+  };
+  
+  res.json(response);
+});
+
 // 건강 체크
 app.get('/health', (req, res) => {
   res.json({ status: 'OK' });
@@ -212,5 +231,6 @@ app.listen(PORT, () => {
   console.log('\n사용 가능한 스킬:');
   console.log('- POST /skill/greeting : 인사말');
   console.log('- POST /skill/room-search : 객실 검색 (캐로셀)');
+  console.log('- POST /skill/room-booking : 예약 요청');
   console.log('- GET /health : 상태 확인\n');
 });
