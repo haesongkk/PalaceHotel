@@ -37,9 +37,9 @@ app.post('/skill/greeting', (req, res) => {
 
 // 객실 검색 스킬 (캐로셀 + 아이템 카드)
 app.post('/skill/room-search', (req, res) => {
-  // 입실일, 퇴실일 파라미터 추출
-  const checkInDate = req.body.action?.params?.checkInDate || "2026-01-10";
-  const checkOutDate = req.body.action?.params?.checkOutDate || "2026-01-12";
+  // 카카오톡 action.detailParams에서 날짜 추출
+  const checkInDate = req.body.action?.detailParams?.checkInDate?.origin || "2026-01-10";
+  const checkOutDate = req.body.action?.detailParams?.checkOutDate?.origin || "2026-01-12";
   
   // 더미 객실 데이터
   const rooms = [
