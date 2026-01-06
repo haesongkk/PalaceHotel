@@ -90,39 +90,30 @@ app.post('/skill/room-search', (req, res) => {
   // 캐로셀 아이템 생성
   const items = rooms.map(room => ({
     itemCard: {
-      title: room.name,
-      description: room.description,
-      image: {
-        imageUrl: room.image,
-        altText: room.name
-      },
-      itemList: [
-        {
-          title: "가격",
-          description: room.price
-        }
-      ]
-    }
-  }));
-  
-  const response = {
-    version: "2.0",
-    template: {
-      outputs: [
-        {
-          carousel: {
-            type: "itemCard",
-            items: items
-          }
-        },
-        {
-          simpleText: {
-            text: `입실: ${checkInDate} | 퇴실: ${checkOutDate}`
-          }
-        }
-      ]
-    }
-  };
+    title: room.name,
+    description: room.description,
+    thumbnail: {
+      imageUrl: room.image,
+      altText: room.name
+    },
+    itemList: [
+      { 
+        title: "가격", 
+        description: room.price 
+      }
+    ]
+  }
+}));
+
+const response = {
+  version: "2.0",
+  template: {
+    outputs: [
+      { carousel: { type: "itemCard", items } },
+      { simpleText: { text: `입실: ${checkInDate} | 퇴실: ${checkOutDate}` } }
+    ]
+  }
+};
   
   res.json(response);
 });
