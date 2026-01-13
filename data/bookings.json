@@ -1,0 +1,126 @@
+{
+  "bookings": [
+    {
+      "id": "B176824097586441",
+      "roomId": "karaoke",
+      "checkIn": "2026-01-13",
+      "checkOut": "2026-01-15",
+      "customerName": "신해성",
+      "phone": "01090009090",
+      "createdAt": "2026-01-12T18:02:55.864Z",
+      "status": "CONFIRMED"
+    },
+    {
+      "id": "B1768252489469160",
+      "roomId": "twin",
+      "checkIn": "2026-01-14",
+      "checkOut": "2026-01-15",
+      "customerName": "라이언",
+      "phone": "01090909090",
+      "createdAt": "2026-01-12T21:14:49.469Z",
+      "status": "CONFIRMED"
+    },
+    {
+      "id": "B1768271762237295",
+      "roomId": "standard",
+      "checkIn": "2026-01-14",
+      "checkOut": "2026-01-15",
+      "customerName": "해송",
+      "phone": "01099990000",
+      "createdAt": "2026-01-13T02:36:02.237Z",
+      "status": "CONFIRMED"
+    },
+    {
+      "id": "B1768274534318912",
+      "roomId": "twin",
+      "checkIn": "2026-01-13",
+      "checkOut": "2026-01-14",
+      "customerName": "곱창",
+      "phone": "01034343434",
+      "createdAt": "2026-01-13T03:22:14.318Z",
+      "status": "CONFIRMED"
+    },
+    {
+      "id": "B176830220341995",
+      "roomId": "standard",
+      "checkIn": "2026-01-13",
+      "checkOut": "2026-01-14",
+      "customerName": "해송",
+      "phone": "01099990000",
+      "createdAt": "2026-01-13T11:03:23.419Z",
+      "status": "CONFIRMED"
+    },
+    {
+      "id": "B1768302548098404",
+      "roomId": "standard",
+      "checkIn": "2026-01-13",
+      "checkOut": "2026-01-14",
+      "customerName": "송송",
+      "phone": "01099990000",
+      "createdAt": "2026-01-13T11:09:08.098Z",
+      "status": "CONFIRMED"
+    },
+    {
+      "id": "B1768303342308514",
+      "userId": "9dfa98d2406a75ec1cf9b60c5d5be5a389613e9297319bf57116860068b5035081",
+      "roomId": "twin",
+      "checkIn": "2026-01-13",
+      "checkOut": "2026-01-14",
+      "customerName": "해송",
+      "phone": "01099999999",
+      "createdAt": "2026-01-13T11:22:22.308Z",
+      "status": "CANCELED",
+      "canceledAt": "2026-01-13T11:22:35.082Z"
+    },
+    {
+      "id": "B1768305795374936",
+      "userId": "9dfa98d2406a75ec1cf9b60c5d5be5a389613e9297319bf57116860068b5035081",
+      "roomId": "standard",
+      "checkIn": "2026-01-13",
+      "checkOut": "2026-01-14",
+      "customerName": "신해성",
+      "phone": "01099999999",
+      "createdAt": "2026-01-13T12:03:15.374Z",
+      "status": "CONFIRMED"
+    },
+    {
+      "id": "B1768306431409961",
+      "userId": "9dfa98d2406a75ec1cf9b60c5d5be5a389613e9297319bf57116860068b5035081",
+      "roomId": "twin",
+      "checkIn": "2026-01-13",
+      "checkOut": "2026-01-14",
+      "customerName": "홍길동",
+      "phone": "01012345678",
+      "createdAt": "2026-01-13T12:13:51.409Z",
+      "status": "CANCELED",
+      "canceledAt": "2026-01-13T12:14:37.505Z"
+    },
+    {
+      "id": "B1768309293628256",
+      "userId": "9dfa98d2406a75ec1cf9b60c5d5be5a389613e9297319bf57116860068b5035081",
+      "roomId": "standard",
+      "checkIn": "2026-01-14",
+      "checkOut": "2026-01-15",
+      "createdAt": "2026-01-13T13:01:33.628Z",
+      "status": "CONFIRMED"
+    },
+    {
+      "id": "B1768309652566664",
+      "userId": "fd2c96b28b6513ab0f9548385cee0599a43373528cbdcb5c2362f3cc7a4c3f05c9",
+      "roomId": "standard",
+      "checkIn": "2026-01-14",
+      "checkOut": "2026-01-15",
+      "createdAt": "2026-01-13T13:07:32.566Z",
+      "status": "CONFIRMED"
+    },
+    {
+      "id": "B1768309775517411",
+      "userId": "fd2c96b28b6513ab0f9548385cee0599a43373528cbdcb5c2362f3cc7a4c3f05c9",
+      "roomId": "twin",
+      "checkIn": "2026-01-13",
+      "checkOut": "2026-01-15",
+      "createdAt": "2026-01-13T13:09:35.517Z",
+      "status": "CONFIRMED"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "rooms": [
+    {
+      "id": "standard",
+      "name": "스탠다드",
+      "short": "가성비 기본형",
+      "description": "기본에 충실한 객실입니다. 1~2인 숙박에 추천드립니다. (※ 이미지는 예시일 수 있습니다.)",
+      "basePrice": 45000,
+      "maxGuests": 2,
+      "amenities": ["무료 Wi-Fi", "TV", "에어컨", "욕실"],
+      "images": [
+        "https://images.unsplash.com/photo-1725962479542-1be0a6b0d444?ixlib=rb-4.1.0&q=85&fm=jpg&crop=entropy&cs=srgb&dl=ikhbale-xMbzmWROWxE-unsplash.jpg"
+      ]
+    },
+    {
+      "id": "twin",
+      "name": "트윈",
+      "short": "침대 2개",
+      "description": "침대 2개로 친구/동료와 편하게 이용 가능합니다. (※ 이미지는 예시일 수 있습니다.)",
+      "basePrice": 50000,
+      "maxGuests": 2,
+      "amenities": ["무료 Wi-Fi", "TV", "에어컨", "욕실"],
+      "images": [
+        "https://images.unsplash.com/photo-1743410973740-153f463a74e0?ixlib=rb-4.1.0&q=85&fm=jpg&crop=entropy&cs=srgb&dl=niraj-golhar-u_nhLLPdUF0-unsplash.jpg"
+      ]
+    },
+    {
+      "id": "karaoke",
+      "name": "노래방",
+      "short": "특화형 객실",
+      "description": "노래방 시설이 포함된 특화 객실입니다. (※ 이미지는 예시일 수 있습니다.)",
+      "basePrice": 60000,
+      "maxGuests": 2,
+      "amenities": ["무료 Wi-Fi", "노래방", "TV", "에어컨", "욕실"],
+      "images": [
+        "https://images.unsplash.com/photo-1682685099267-804cdfc19619?ixlib=rb-4.1.0&q=85&fm=jpg&crop=entropy&cs=srgb&dl=mert-kahveci-HrB0dC6Kgvc-unsplash.jpg"
+      ]
+    }
+  ]
+}
