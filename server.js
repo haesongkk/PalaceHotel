@@ -261,10 +261,10 @@ async function createBooking({ userId, roomId, checkIn, checkOut }) {
     inventory[roomId] = inventory[roomId] || {};
 
     const stayDates = enumerateStayDates(checkIn, checkOut);
-    for (const d of stayDates) {
-      const remain = Number(inventory[roomId][d] ?? 0);
-      if (remain <= 0) return { ok: false, reason: "sold_out" };
-    }
+    // for (const d of stayDates) {
+    //   const remain = Number(inventory[roomId][d] ?? 0);
+    //   if (remain <= 0) return { ok: false, reason: "sold_out" };
+    // }
 
     for (const d of stayDates) inventory[roomId][d] = Number(inventory[roomId][d] ?? 0) - 1;
 
@@ -424,7 +424,7 @@ async function runAI({ userId, utterance, session, rooms }) {
 - 기본 진행 순서는 항상 아래 중 하나로 "상황에 맞게" 자동 선택하되, 사용자가 헷갈리지 않게 일관되게 유지하세요.
   A) 날짜(체크인/체크아웃 또는 숙박일수)가 먼저 확보된 경우 → 즉시 객실을 보여주고 선택받기
   B) 객실이 먼저 확보된 경우 → 즉시 숙박일수/체크아웃을 확정한 뒤 진행(필요하면 객실도 함께 보여주기)
-  C) 둘 다 없는 경우(예약하기/예약하고싶어 같은 시작) → 기본은 "날짜(체크인)"를 먼저 받아 진행하기
+  C) 둘 다 없는 경우(예약하기/예약하고싶어 같은 시작) → 기본은 "날짜(체크인/체크아웃)"를 먼저 받아 진행하기
 
 - 절대 하면 안 되는 것:
   1) "객실을 먼저 물어보고 객실을 안 보여주는" 응답
@@ -512,11 +512,11 @@ ${roomsSummary}
     { role: "user", content: utterance }
   ];
 
-  for (let step = 0; step < 4; step++) {
+  for (let step = 0; step < 2; step++) {
     const resp = await client.chat.completions.create({
       model: MODEL,
       messages,
-      temperature: 0.4,
+      temperature: 0.2,
       tools,
       tool_choice: "auto",
       response_format: {
