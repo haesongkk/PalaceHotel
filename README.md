@@ -74,6 +74,12 @@ npm start
 └── public/                # 정적 파일
 ```
 
+## 카카오톡 챗봇 스킬 API
+
+- **엔드포인트**: `POST /api/kakao/skill`
+- 챗봇 관리자센터에서 스킬 URL로 `https://your-domain.com/api/kakao/skill` 를 등록하면 됩니다.
+- `action.params.situation`(블록 파라미터) 또는 사용자 발화 키워드로 상황을 판별하고, **카카오톡 챗봇 멘트 관리**에서 설정한 메시지를 그대로 응답합니다.
+
 ## 주의사항
 
 - 현재 데이터는 메모리에만 저장되므로 서버를 재시작하면 모든 데이터가 초기화됩니다.
