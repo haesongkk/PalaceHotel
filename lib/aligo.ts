@@ -6,7 +6,7 @@
 interface AligoSendSMSOptions {
   receiver: string; // 수신번호 (쉼표로 여러개 가능)
   msg: string; // 메시지 내용 (1~2,000 Byte)
-  testmode?: boolean; // 테스트 모드 (기본값: true)
+  testmode?: boolean; // 테스트 모드. true일 때만 사용 (기본: 실제 발송)
 }
 
 interface AligoResponse {
@@ -24,7 +24,8 @@ export async function sendSMS(options: AligoSendSMSOptions): Promise<AligoRespon
   const apiKey = process.env.ALIGO_API_KEY;
   const userId = process.env.ALIGO_USER_ID;
   const sender = process.env.ALIGO_SENDER;
-  const testMode = process.env.ALIGO_TEST_MODE === 'Y' || options.testmode !== false;
+  // 테스트 모드(Y)일 때는 전송결과만 기록되고 실제 문자가 안 감. 실제 발송 시 반드시 false.
+  const testMode = process.env.ALIGO_TEST_MODE === 'Y' || options.testmode === true;
 
   if (!apiKey || !userId || !sender) {
     throw new Error('알리고 API 설정이 완료되지 않았습니다. .env 파일을 확인하세요.');
