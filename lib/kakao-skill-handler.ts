@@ -1,5 +1,5 @@
 import { dataStore } from '@/lib/store';
-import type { ChatbotSituation, DayOfWeek, Room, Reservation, ReservationStatus } from '@/types';
+import type { ChatbotSituation, DayOfWeek, Room, Reservation, ReservationStatus, DayPrices } from '@/types';
 import type {
   KakaoSkillRequest,
   KakaoSkillResponse,
@@ -44,14 +44,50 @@ function getMessage(situation: ChatbotSituation | null): string {
  * 날짜/가격 유틸
  * --------------------------- */
 
+function getNights(checkIn: Date, checkOut: Date): number {
+  const inD = startOfDay(checkIn);
+  const outD = startOfDay(checkOut);
+  const diffMs = outD.getTime() - inD.getTime();
+  if (diffMs <= 0) return 0;
+  return Math.round(diffMs / 86400000); // 24*60*60*1000
+}
+
+function getRoomPrice(room: Room, date: Date, isStay: 'stay' | 'dayUse'): number {
+  const dayOfWeek = getDayOfWeek(date);
+  const dayPrices = room.prices[dayOfWeek];
+  if (isStay === 'stay') return dayPrices.stayPrice;
+  if (isStay === 'dayUse') return dayPrices.dayUsePrice;
+  return 0;
+}
+
 function createRoomItem(room: Room, checkIn: Date, checkOut: Date): KakaoCarouselItem {
+  const inD = startOfDay(checkIn);
+  const nights = getNights(inD, checkOut);
+
+  let price = 0;
+
+  if (nights === 0) {
+    price = getRoomPrice(room, inD, "dayUse");
+  } else {
+    for (let i = 0; i < nights; i++) {
+      const date = new Date(inD);
+      date.setDate(inD.getDate() + i);
+      price += getRoomPrice(room, date, "stay");
+    }
+  }
+
+  // 임시 할인 적용
+  const discountedPrice = price * 0.9;
+  const discount = price - discountedPrice;
+  const discountRate = discount / price * 100;
+
   return {
     title: room.type,
-    price: 30000,
+    price: price,
     currency: 'won',
-    discount: 10000,
-    discountRate: 0.2,
-    discountedPrice: 20000,
+    discount: discount,
+    discountRate: discountRate,
+    discountedPrice: discountedPrice,
     thumbnails: [{
       imageUrl: room.imageUrl || 'https://via.placeholder.com/800x600?text=Room',
       altText: room.type,
@@ -138,6 +174,61 @@ function simpleText(text: string): KakaoOutputComponent {
 }
 
 /* ---------------------------
+ * 날짜 계산 유틸
+ * --------------------------- */
+
+function startOfDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function getTodayDate(): Date {
+  return startOfDay(new Date());
+}
+
+// 달력 기준 "내일" (오늘 00:00 기준 + 1일)
+function getTomorrowDate(): Date {
+  const d = getTodayDate();
+  d.setDate(d.getDate() + 1);
+  return startOfDay(d);
+}
+
+// 다가오는 가장 첫 토요일 (오늘이 토요일이면 오늘)
+function getUpcomingSaturdayDate(): Date {
+  const d = getTodayDate();
+  const day = d.getDay();           // 0=일 ... 6=토
+  const diff = (6 - day + 7) % 7;   // 오늘이 토요일이면 0
+  d.setDate(d.getDate() + diff);
+  return startOfDay(d);
+}
+
+function getUpcomingSundayDate(): Date {
+  const d = getTodayDate();
+  const day = d.getDay();           // 0=일 ... 6=토
+  const diff = (7 - day + 7) % 7;   // 오늘이 일요일이면 0
+  d.setDate(d.getDate() + diff);
+  return startOfDay(d);
+}
+
+function getDateFromParams(params: string): Date {
+  const obj = JSON.parse(params);
+  const { userTimeZone, value } = obj;
+  return startOfDay(new Date(value));
+}
+
+function getDayOfWeek(date: Date): DayOfWeek {
+  if(date.getDay() === 0) return 'sunday';
+  if(date.getDay() === 1) return 'monday';
+  if(date.getDay() === 2) return 'tuesday';
+  if(date.getDay() === 3) return 'wednesday';
+  if(date.getDay() === 4) return 'thursday';
+  if(date.getDay() === 5) return 'friday';
+  if(date.getDay() === 6) return 'saturday';
+  return 'sunday';
+}
+
+/* ---------------------------
  * 메인 핸들러
  * --------------------------- */
 
@@ -149,6 +240,12 @@ export function handleKakaoSkillRequest(req: KakaoSkillRequest): KakaoSkillRespo
   const situation = matchSituationFromUtterance(utterance);
   const message = getMessage(situation);
 
+  const today = getTodayDate();
+  const tomorrow = getTomorrowDate();
+  const saturday = getUpcomingSaturdayDate();
+  const sunday = getUpcomingSundayDate();
+
+
   switch (utterance) {
   case '오늘대실':
     return {
@@ -156,7 +253,7 @@ export function handleKakaoSkillRequest(req: KakaoSkillRequest): KakaoSkillRespo
       template: {
         outputs: [
           simpleText(message),
-          createRoomCarousel(new Date(), new Date())
+          createRoomCarousel(today, today)
         ],
       },
     };
@@ -166,7 +263,7 @@ export function handleKakaoSkillRequest(req: KakaoSkillRequest): KakaoSkillRespo
       template: {
         outputs: [
           simpleText(message),
-          createRoomCarousel(new Date(), new Date())
+          createRoomCarousel(today, tomorrow)
         ],
       },
     };
@@ -220,7 +317,7 @@ export function handleKakaoSkillRequest(req: KakaoSkillRequest): KakaoSkillRespo
           template: {
             outputs: [
               simpleText(`토요일 대실 예약하기 눌렀음`),
-              createRoomCarousel(new Date(), new Date())
+              createRoomCarousel(saturday, saturday)
             ],
           },
         };
@@ -230,20 +327,11 @@ export function handleKakaoSkillRequest(req: KakaoSkillRequest): KakaoSkillRespo
           template: {
             outputs: [
               simpleText(`토요일 숙박 예약하기 눌렀음`),
-              createRoomCarousel(new Date(), new Date())
+              createRoomCarousel(saturday, sunday)
             ],
           },
         };
       }
-      return {
-        version: '2.0',
-        template: {
-          outputs: [
-            simpleText(`${extra.type} 예약하기 눌렀음`),
-            createRoomCarousel(new Date(), new Date())
-          ],
-        },
-      };
     } else if (extra.reservationId) {
       return {
         version: '2.0',
@@ -256,8 +344,8 @@ export function handleKakaoSkillRequest(req: KakaoSkillRequest): KakaoSkillRespo
         version: '2.0',
         template: {
           outputs: [
-            simpleText(`${params.checkin} ~ ${params.checkout} 예약하기 눌렀음`),
-            createRoomCarousel(new Date(), new Date())
+            simpleText(`예약하기-숙박-날짜선택 후 출력될 텍스트 지정 필요`),
+            createRoomCarousel(getDateFromParams(params.checkin), getDateFromParams(params.checkout))
           ],
         },
       };
@@ -266,8 +354,8 @@ export function handleKakaoSkillRequest(req: KakaoSkillRequest): KakaoSkillRespo
         version: '2.0',
         template: {
           outputs: [
-            simpleText(`${params.date} 예약하기 눌렀음`),
-            createRoomCarousel(new Date(), new Date())
+            simpleText(`예약하기-대실-날짜선택 후 출력될 텍스트 지정 필요`),
+            createRoomCarousel(getDateFromParams(params.date), getDateFromParams(params.date))
           ],
         },
       };
