@@ -53,6 +53,7 @@ export type ChatbotSituation =
   | 'phone_input_request'     // 전화번호 입력 요청시
   | 'reservation_request'     // 예약 요청시
   | 'reservation_confirmed'   // 예약 확정시
+  | 'reservation_rejected'    // 예약 거절시
   | 'reservation_inquiry';    // 예약내역 조회시
 
 export interface ChatbotMessage {

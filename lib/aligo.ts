@@ -95,3 +95,44 @@ export async function sendReservationNotificationSMS(reservationId: string): Pro
     msg: message,
   });
 }
+
+/**
+ * 예약 확정/거절 SMS 발송 (고객에게)
+ * store에 저장된 메시지 템플릿을 사용하여 예약 정보를 포함한 메시지 전송
+ */
+export async function sendReservationStatusSMS(
+  phoneNumber: string,
+  messageTemplate: string,
+  reservationInfo: {
+    roomType: string;
+    checkIn: string;
+    checkOut: string;
+    totalPrice?: number;
+  }
+): Promise<AligoResponse> {
+  // 메시지 템플릿의 변수를 실제 값으로 치환
+  let message = messageTemplate
+    .replace(/{roomType}/g, reservationInfo.roomType)
+    .replace(/{checkIn}/g, formatDateForSMS(reservationInfo.checkIn))
+    .replace(/{checkOut}/g, formatDateForSMS(reservationInfo.checkOut));
+
+  if (reservationInfo.totalPrice !== undefined) {
+    message = message.replace(/{totalPrice}/g, reservationInfo.totalPrice.toLocaleString());
+  }
+
+  return sendSMS({
+    receiver: phoneNumber,
+    msg: message,
+  });
+}
+
+/**
+ * 날짜를 SMS에 적합한 형식으로 변환 (YYYY년 MM월 DD일)
+ */
+function formatDateForSMS(dateString: string): string {
+  const date = new Date(dateString);
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  return `${year}년 ${month}월 ${day}일`;
+}

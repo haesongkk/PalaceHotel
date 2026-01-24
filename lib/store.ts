@@ -17,7 +17,8 @@ class DataStore {
     make_reservation: '사용자가 "예약하기" 버튼을 클릭했을 때 표시되는 안내 메시지입니다.',
     phone_input_request: '사용자가 객실을 선택한 후 전화번호를 입력하도록 요청할 때 표시되는 안내 메시지입니다.',
     reservation_request: '사용자가 예약을 요청했을 때 표시되는 확인 메시지입니다.',
-    reservation_confirmed: '예약이 확정되었을 때 사용자에게 전송되는 확정 메시지입니다.',
+    reservation_confirmed: '예약이 확정되었을 때 사용자에게 전송되는 확정 메시지입니다. {roomType}, {checkIn}, {checkOut}, {totalPrice} 변수를 사용할 수 있습니다.',
+    reservation_rejected: '예약이 거절되었을 때 사용자에게 전송되는 거절 메시지입니다. {roomType}, {checkIn}, {checkOut} 변수를 사용할 수 있습니다.',
     reservation_inquiry: '사용자가 예약 내역을 조회했을 때 표시되는 안내 메시지입니다.',
   };
 
@@ -124,7 +125,7 @@ class DataStore {
       },
     ];
 
-    // 샘플 챗봇 멘트 데이터 (9가지 상황 모두 초기화)
+    // 샘플 챗봇 멘트 데이터 (10가지 상황 모두 초기화)
     const situations: ChatbotSituation[] = [
       'channel_added',
       'today_day_use',
@@ -134,6 +135,7 @@ class DataStore {
       'phone_input_request',
       'reservation_request',
       'reservation_confirmed',
+      'reservation_rejected',
       'reservation_inquiry',
     ];
 
@@ -145,7 +147,8 @@ class DataStore {
       make_reservation: '예약을 진행하시겠습니까? 원하시는 날짜와 인원수를 알려주세요.',
       phone_input_request: '예약을 완료하기 위해 전화번호를 입력해주세요.\n형식: 010-1234-5678',
       reservation_request: '예약 요청이 접수되었습니다. 확인 후 연락드리겠습니다.',
-      reservation_confirmed: '예약이 확정되었습니다. 감사합니다!',
+      reservation_confirmed: '[팰리스호텔] 예약이 확정되었습니다.\n\n객실: {roomType}\n체크인: {checkIn}\n체크아웃: {checkOut}\n금액: {totalPrice}원\n\n감사합니다!',
+      reservation_rejected: '[팰리스호텔] 죄송합니다. 요청하신 예약을 받아드리지 못했습니다.\n\n객실: {roomType}\n체크인: {checkIn}\n체크아웃: {checkOut}\n\n다른 날짜로 다시 예약해주시기 바랍니다.',
       reservation_inquiry: '예약 내역을 조회해드리겠습니다.',
     };
 
