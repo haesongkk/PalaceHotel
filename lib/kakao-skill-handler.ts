@@ -101,6 +101,7 @@ function createRoomItem(room: Room, checkIn: Date, checkOut: Date): KakaoCarouse
           roomId: room.id,
           checkIn: checkIn.toISOString(),
           checkOut: checkOut.toISOString(),
+          totalPrice: discountedPrice,
         },
       },
     ],
@@ -300,16 +301,8 @@ export function handleKakaoSkillRequest(req: KakaoSkillRequest): KakaoSkillRespo
       },
     };
   default:
-    if (extra.roomId && extra.checkIn && extra.checkOut) {
-      return {
-        version: '2.0',
-        template: {
-          outputs: [
-            simpleText(dataStore.getChatbotMessage('reservation_request')?.message ?? ''),
-            simpleText(dataStore.getChatbotMessage('reservation_confirmed')?.message ?? ''),
-          ],
-        },
-      };
+    if (extra.roomId && extra.checkIn && extra.checkOut && extra.totalPrice) {
+      return handleReservationRequest(req);
     } else if (extra.type) {
       if (extra.type === 'saturday_day_use') {
         return {
@@ -369,3 +362,32 @@ export function handleKakaoSkillRequest(req: KakaoSkillRequest): KakaoSkillRespo
   }
   
 }
+
+function handleReservationRequest(req: KakaoSkillRequest): KakaoSkillResponse {
+  const extra = req.action?.clientExtra ?? {};
+  const userId = req.userRequest?.user?.id ?? '';
+
+  const checkInISO = new Date(extra.checkIn as string).toISOString();
+  const checkOutISO = new Date(extra.checkOut as string).toISOString();
+
+  // 예약 요청 저장 후 관리자에게 메세지 전송
+  dataStore.addReservation({
+    roomId: extra.roomId as string,
+    guestName: userId,
+    guestPhone: '010-0000-0000',
+    checkIn: checkInISO,
+    checkOut: checkOutISO,
+    status: 'pending',
+    totalPrice: extra.totalPrice as number,
+    notes: '',
+  });
+
+  return {
+    version: '2.0',
+    template: {
+      outputs: [simpleText(dataStore.getChatbotMessage('reservation_request')?.message ?? '')],
+    },
+  };
+}
+
+
