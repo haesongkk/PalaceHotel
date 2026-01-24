@@ -80,7 +80,12 @@ export async function sendSMS(options: AligoSendSMSOptions): Promise<AligoRespon
  * 관리자에게 "나중에 카톡으로 보낼 예정" 안내 + 링크만 전송
  */
 export async function sendReservationNotificationSMS(reservationId: string): Promise<AligoResponse> {
-  const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+  // Render, Vercel 등 다양한 플랫폼 지원
+  const baseUrl = 
+    process.env.BASE_URL || 
+    process.env.RENDER_EXTERNAL_URL || 
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
+    'http://localhost:3000';
   const adminPhone = process.env.ALIGO_ADMIN_PHONE;
 
   if (!adminPhone) {
