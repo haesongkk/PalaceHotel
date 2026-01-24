@@ -176,6 +176,50 @@ function simpleText(text: string): KakaoOutputComponent {
 }
 
 /* ---------------------------
+ * 전화번호 유틸
+ * --------------------------- */
+
+/**
+ * 전화번호 형식 검증
+ * 010-1234-5678, 01012345678, 010 1234 5678 등 다양한 형식 지원
+ */
+function isValidPhoneNumber(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+
+  // 숫자만 추출
+  const digits = trimmed.replace(/\D/g, '');
+  
+  // 010, 011, 016, 017, 018, 019로 시작하고 총 10~11자리인지 확인
+  if (digits.length < 10 || digits.length > 11) return false;
+  if (!digits.startsWith('010') && !digits.startsWith('011') && 
+      !digits.startsWith('016') && !digits.startsWith('017') && 
+      !digits.startsWith('018') && !digits.startsWith('019')) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * 전화번호를 010-XXXX-XXXX 형식으로 정규화
+ */
+function normalizePhoneNumber(text: string): string {
+  const digits = text.trim().replace(/\D/g, '');
+  
+  if (digits.length === 10) {
+    // 0101234567 -> 010-1234-567
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  } else if (digits.length === 11) {
+    // 01012345678 -> 010-1234-5678
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  }
+  
+  // 형식이 맞지 않으면 원본 반환 (에러 처리에서 처리)
+  return text.trim();
+}
+
+/* ---------------------------
  * 날짜 계산 유틸
  * --------------------------- */
 
@@ -302,8 +346,46 @@ export function handleKakaoSkillRequest(req: KakaoSkillRequest): KakaoSkillRespo
       },
     };
   default:
+    // 전화번호 입력 처리 (임시 예약 정보가 있는 경우)
+    const userId = req.userRequest?.user?.id ?? '';
+    const pendingReservation = dataStore.getPendingReservation(userId);
+    
+    if (pendingReservation) {
+      // 취소 키워드 체크
+      const lowerUtterance = utterance.toLowerCase().trim();
+      if (lowerUtterance === '취소' || lowerUtterance === '예약취소') {
+        dataStore.deletePendingReservation(userId);
+        return {
+          version: '2.0',
+          template: {
+            outputs: [simpleText('예약이 취소되었습니다.')],
+          },
+        };
+      }
+
+      // 전화번호 형식 검증
+      if (isValidPhoneNumber(utterance)) {
+        const normalizedPhone = normalizePhoneNumber(utterance);
+        return handleReservationWithPhone(req, pendingReservation, normalizedPhone);
+      } else {
+        // 전화번호 형식이 잘못된 경우
+        return {
+          version: '2.0',
+          template: {
+            outputs: [
+              simpleText('전화번호 형식이 올바르지 않습니다.\n다시 입력해주세요.\n예: 010-1234-5678'),
+            ],
+            quickReplies: [
+              quickReply('취소', {}),
+            ],
+          },
+        };
+      }
+    }
+    
+    // 객실 선택 처리 (임시 예약 정보 저장 후 전화번호 요청)
     if (extra.roomId && extra.checkIn && extra.checkOut && extra.totalPrice) {
-      return handleReservationRequest(req);
+      return handleRoomSelection(req);
     } else if (extra.type) {
       if (extra.type === 'saturday_day_use') {
         return {
@@ -364,24 +446,60 @@ export function handleKakaoSkillRequest(req: KakaoSkillRequest): KakaoSkillRespo
   
 }
 
-function handleReservationRequest(req: KakaoSkillRequest): KakaoSkillResponse {
+/**
+ * 객실 선택 시 임시 예약 정보 저장 및 전화번호 입력 요청
+ */
+function handleRoomSelection(req: KakaoSkillRequest): KakaoSkillResponse {
   const extra = req.action?.clientExtra ?? {};
   const userId = req.userRequest?.user?.id ?? '';
 
-  const checkInISO = new Date(extra.checkIn as string).toISOString();
-  const checkOutISO = new Date(extra.checkOut as string).toISOString();
+  // 임시 예약 정보 저장
+  dataStore.savePendingReservation(userId, {
+    roomId: extra.roomId as string,
+    checkIn: new Date(extra.checkIn as string).toISOString(),
+    checkOut: new Date(extra.checkOut as string).toISOString(),
+    totalPrice: extra.totalPrice as number,
+  });
+
+  // 전화번호 입력 요청 메시지
+  const message = dataStore.getChatbotMessage('phone_input_request')?.message ?? 
+    '예약을 완료하기 위해 전화번호를 입력해주세요.\n형식: 010-1234-5678';
+
+  return {
+    version: '2.0',
+    template: {
+      outputs: [simpleText(message)],
+      quickReplies: [
+        quickReply('취소', {}),
+      ],
+    },
+  };
+}
+
+/**
+ * 전화번호 입력 후 예약 완료 처리
+ */
+function handleReservationWithPhone(
+  req: KakaoSkillRequest,
+  pendingReservation: { roomId: string; checkIn: string; checkOut: string; totalPrice: number },
+  phoneNumber: string
+): KakaoSkillResponse {
+  const userId = req.userRequest?.user?.id ?? '';
 
   // 예약 요청 저장
   const reservation = dataStore.addReservation({
-    roomId: extra.roomId as string,
+    roomId: pendingReservation.roomId,
     guestName: userId,
-    guestPhone: '010-0000-0000',
-    checkIn: checkInISO,
-    checkOut: checkOutISO,
+    guestPhone: phoneNumber,
+    checkIn: pendingReservation.checkIn,
+    checkOut: pendingReservation.checkOut,
     status: 'pending',
-    totalPrice: extra.totalPrice as number,
+    totalPrice: pendingReservation.totalPrice,
     notes: '',
   });
+
+  // 임시 예약 정보 삭제
+  dataStore.deletePendingReservation(userId);
 
   // 관리자에게 SMS 발송 (비동기, 에러는 조용히 처리)
   sendReservationNotificationSMS(reservation.id).catch((error) => {

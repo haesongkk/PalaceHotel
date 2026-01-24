@@ -1,4 +1,4 @@
-import { Room, Reservation, ChatbotMessage, ChatHistory, ChatMessage, ChatbotSituation } from '@/types';
+import { Room, Reservation, ChatbotMessage, ChatHistory, ChatMessage, ChatbotSituation, PendingReservation } from '@/types';
 
 // 메모리 데이터 저장소
 class DataStore {
@@ -6,6 +6,7 @@ class DataStore {
   private reservations: Reservation[] = [];
   private chatbotMessages: Map<ChatbotSituation, ChatbotMessage> = new Map();
   private chatHistories: ChatHistory[] = [];
+  private pendingReservations: Map<string, PendingReservation> = new Map(); // userId -> PendingReservation
 
   // 상황별 설명 정의
   private situationDescriptions: Record<ChatbotSituation, string> = {
@@ -14,6 +15,7 @@ class DataStore {
     today_stay: '사용자가 "오늘 숙박" 옵션을 선택했을 때 표시되는 안내 메시지입니다.',
     saturday_reservation: '사용자가 "토요일 예약" 옵션을 선택했을 때 표시되는 안내 메시지입니다.',
     make_reservation: '사용자가 "예약하기" 버튼을 클릭했을 때 표시되는 안내 메시지입니다.',
+    phone_input_request: '사용자가 객실을 선택한 후 전화번호를 입력하도록 요청할 때 표시되는 안내 메시지입니다.',
     reservation_request: '사용자가 예약을 요청했을 때 표시되는 확인 메시지입니다.',
     reservation_confirmed: '예약이 확정되었을 때 사용자에게 전송되는 확정 메시지입니다.',
     reservation_inquiry: '사용자가 예약 내역을 조회했을 때 표시되는 안내 메시지입니다.',
@@ -122,13 +124,14 @@ class DataStore {
       },
     ];
 
-    // 샘플 챗봇 멘트 데이터 (8가지 상황 모두 초기화)
+    // 샘플 챗봇 멘트 데이터 (9가지 상황 모두 초기화)
     const situations: ChatbotSituation[] = [
       'channel_added',
       'today_day_use',
       'today_stay',
       'saturday_reservation',
       'make_reservation',
+      'phone_input_request',
       'reservation_request',
       'reservation_confirmed',
       'reservation_inquiry',
@@ -140,6 +143,7 @@ class DataStore {
       today_stay: '오늘 숙박 가능한 객실을 안내해드리겠습니다.',
       saturday_reservation: '토요일 예약 가능한 객실을 안내해드리겠습니다.',
       make_reservation: '예약을 진행하시겠습니까? 원하시는 날짜와 인원수를 알려주세요.',
+      phone_input_request: '예약을 완료하기 위해 전화번호를 입력해주세요.\n형식: 010-1234-5678',
       reservation_request: '예약 요청이 접수되었습니다. 확인 후 연락드리겠습니다.',
       reservation_confirmed: '예약이 확정되었습니다. 감사합니다!',
       reservation_inquiry: '예약 내역을 조회해드리겠습니다.',
@@ -321,6 +325,43 @@ class DataStore {
     };
     
     return this.chatHistories[index];
+  }
+
+  // 임시 예약 정보 관련 메서드
+  savePendingReservation(userId: string, data: Omit<PendingReservation, 'createdAt'>): PendingReservation {
+    const pending: PendingReservation = {
+      ...data,
+      createdAt: new Date().toISOString(),
+    };
+    this.pendingReservations.set(userId, pending);
+    return pending;
+  }
+
+  getPendingReservation(userId: string): PendingReservation | undefined {
+    return this.pendingReservations.get(userId);
+  }
+
+  deletePendingReservation(userId: string): boolean {
+    return this.pendingReservations.delete(userId);
+  }
+
+  // 만료된 임시 예약 정보 정리 (10분 이상 경과)
+  cleanupExpiredReservations(): number {
+    const now = new Date().getTime();
+    const expiredMinutes = 10;
+    let cleaned = 0;
+
+    for (const [userId, pending] of this.pendingReservations.entries()) {
+      const createdAt = new Date(pending.createdAt).getTime();
+      const diffMinutes = (now - createdAt) / (1000 * 60);
+      
+      if (diffMinutes > expiredMinutes) {
+        this.pendingReservations.delete(userId);
+        cleaned++;
+      }
+    }
+
+    return cleaned;
   }
 }
 

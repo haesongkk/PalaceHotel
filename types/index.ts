@@ -34,6 +34,15 @@ export interface Reservation {
   createdAt: string; // ISO date string
 }
 
+// 임시 예약 정보 타입 (전화번호 입력 대기 중)
+export interface PendingReservation {
+  roomId: string;
+  checkIn: string; // ISO date string
+  checkOut: string; // ISO date string
+  totalPrice: number;
+  createdAt: string; // ISO date string (만료 시간 체크용)
+}
+
 // 카카오톡 챗봇 멘트 타입
 export type ChatbotSituation = 
   | 'channel_added'           // 채널 추가시
@@ -41,6 +50,7 @@ export type ChatbotSituation =
   | 'today_stay'              // 오늘숙박 선택시
   | 'saturday_reservation'    // 토요일예약 선택시
   | 'make_reservation'        // 예약하기 선택시
+  | 'phone_input_request'     // 전화번호 입력 요청시
   | 'reservation_request'     // 예약 요청시
   | 'reservation_confirmed'   // 예약 확정시
   | 'reservation_inquiry';    // 예약내역 조회시
