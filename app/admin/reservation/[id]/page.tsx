@@ -108,6 +108,10 @@ export default function AdminReservationPage() {
   }
 
   const isPending = reservation.status === 'pending';
+  const formatDate = (s: string) =>
+    new Date(s).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric', year: 'numeric' });
+  const checkInStr = formatDate(reservation.checkIn);
+  const checkOutStr = formatDate(reservation.checkOut);
 
   return (
     <div className="min-h-screen bg-[#abc1d1] py-8 px-4">
@@ -126,9 +130,14 @@ export default function AdminReservationPage() {
               <div className="text-gray-800 font-medium mb-2">🔔 새로운 예약 요청</div>
               {isPending ? (
                 <>
-                  <div className="text-gray-600 text-sm mb-3">
-                    고객명 {reservation.guestName} · {room?.type ?? '객실'} ·{' '}
-                    {reservation.totalPrice.toLocaleString()}원
+                  <div className="text-gray-600 text-sm mb-3 space-y-1">
+                    <div>
+                      고객명 {reservation.guestName} · {room?.type ?? '객실'} ·{' '}
+                      {reservation.totalPrice.toLocaleString()}원
+                    </div>
+                    <div>
+                      체크인 {checkInStr} ~ 체크아웃 {checkOutStr}
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <button
