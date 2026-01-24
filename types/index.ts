@@ -62,10 +62,32 @@ export interface ChatHistory {
   updatedAt: string;
 }
 
+// 카카오톡 대화 메시지 타입
 export interface ChatMessage {
   id: string;
   sender: 'user' | 'bot';
-  content: string;
   timestamp: string; // ISO date string
+  
+  // 사용자 메시지인 경우
+  userMessage?: {
+    utterance: string; // 사용자가 입력한 텍스트
+    request?: Record<string, unknown>; // 전체 요청 데이터 (선택적)
+  };
+  
+  // 봇 메시지인 경우
+  botMessage?: {
+    response: {
+      version: '2.0';
+      template?: {
+        outputs: Array<Record<string, unknown>>; // KakaoOutputComponent 배열
+        quickReplies?: Array<Record<string, unknown>>; // KakaoQuickReply 배열
+      };
+      context?: Record<string, unknown>;
+      data?: Record<string, unknown>;
+    };
+  };
+  
+  // 하위 호환성을 위한 content 필드 (deprecated, 렌더링용으로만 사용)
+  content?: string;
 }
 

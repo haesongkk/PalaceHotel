@@ -42,12 +42,45 @@ export default function ChatHistoriesPage() {
     });
   };
 
+  // userId를 일부만 표시하는 헬퍼 함수
+  const formatUserId = (userId: string) => {
+    if (userId.length <= 8) return userId;
+    return userId.substring(0, 8) + '...';
+  };
+
   const getLastMessage = (history: ChatHistory) => {
     if (history.messages.length === 0) return '메시지 없음';
     const lastMsg = history.messages[history.messages.length - 1];
-    return lastMsg.content.length > 50
-      ? lastMsg.content.substring(0, 50) + '...'
-      : lastMsg.content;
+    
+    // 사용자 메시지
+    if (lastMsg.sender === 'user' && lastMsg.userMessage) {
+      const text = lastMsg.userMessage.utterance;
+      return text.length > 50 ? text.substring(0, 50) + '...' : text;
+    }
+    
+    // 봇 메시지 - 첫 번째 텍스트 추출
+    if (lastMsg.sender === 'bot' && lastMsg.botMessage?.response?.template?.outputs) {
+      for (const output of lastMsg.botMessage.response.template.outputs) {
+        if (output.simpleText && typeof output.simpleText === 'object') {
+          const text = (output.simpleText as { text?: string }).text || '';
+          if (text) return text.length > 50 ? text.substring(0, 50) + '...' : text;
+        }
+        if (output.textCard && typeof output.textCard === 'object') {
+          const card = output.textCard as { title?: string; description?: string };
+          const text = card.title || card.description || '';
+          if (text) return text.length > 50 ? text.substring(0, 50) + '...' : text;
+        }
+      }
+    }
+    
+    // 하위 호환성
+    if (lastMsg.content) {
+      return lastMsg.content.length > 50
+        ? lastMsg.content.substring(0, 50) + '...'
+        : lastMsg.content;
+    }
+    
+    return '메시지';
   };
 
   if (loading) {
@@ -73,11 +106,17 @@ export default function ChatHistoriesPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center">
-                        <p className="text-sm font-medium text-gray-900">
-                          {history.userName || `사용자 ${history.userId}`}
-                        </p>
+                        {history.userName ? (
+                          <p className="text-sm font-medium text-gray-900">
+                            {history.userName}
+                          </p>
+                        ) : (
+                          <p className="text-sm font-medium text-gray-900">
+                            사용자 {formatUserId(history.userId)}
+                          </p>
+                        )}
                         <span className="ml-3 text-xs text-gray-500">
-                          ({history.userId})
+                          ({formatUserId(history.userId)})
                         </span>
                         <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                           {history.messages.length}개 메시지

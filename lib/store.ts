@@ -1,4 +1,4 @@
-import { Room, Reservation, ChatbotMessage, ChatHistory, ChatbotSituation } from '@/types';
+import { Room, Reservation, ChatbotMessage, ChatHistory, ChatMessage, ChatbotSituation } from '@/types';
 
 // 메모리 데이터 저장소
 class DataStore {
@@ -154,57 +154,8 @@ class DataStore {
       });
     });
 
-    // 샘플 대화 내역 데이터
-    this.chatHistories = [
-      {
-        id: '1',
-        userId: 'user123',
-        userName: '홍길동',
-        messages: [
-          {
-            id: 'm1',
-            sender: 'user',
-            content: '예약하고 싶어요',
-            timestamp: new Date(Date.now() - 3600000).toISOString(),
-          },
-          {
-            id: 'm2',
-            sender: 'bot',
-            content: '예약 문의를 도와드리겠습니다. 원하시는 날짜와 인원수를 알려주세요.',
-            timestamp: new Date(Date.now() - 3590000).toISOString(),
-          },
-          {
-            id: 'm3',
-            sender: 'user',
-            content: '내일부터 2박 3일, 2명이요',
-            timestamp: new Date(Date.now() - 3580000).toISOString(),
-          },
-        ],
-        createdAt: new Date(Date.now() - 3600000).toISOString(),
-        updatedAt: new Date(Date.now() - 3580000).toISOString(),
-      },
-      {
-        id: '2',
-        userId: 'user456',
-        userName: '김영희',
-        messages: [
-          {
-            id: 'm4',
-            sender: 'user',
-            content: '체크인 시간이 언제인가요?',
-            timestamp: new Date(Date.now() - 7200000).toISOString(),
-          },
-          {
-            id: 'm5',
-            sender: 'bot',
-            content: '체크인 시간은 오후 3시부터입니다. 조기 체크인은 객실 상황에 따라 가능합니다.',
-            timestamp: new Date(Date.now() - 7190000).toISOString(),
-          },
-        ],
-        createdAt: new Date(Date.now() - 7200000).toISOString(),
-        updatedAt: new Date(Date.now() - 7190000).toISOString(),
-      },
-    ];
+    // chatHistories는 이미 빈 배열로 선언되어 있으므로 초기화하지 않음
+    // 실제 대화 내역은 addMessageToHistory()를 통해 추가됨
   }
 
   // 객실 관련 메서드
@@ -314,7 +265,74 @@ class DataStore {
     this.chatHistories.push(newHistory);
     return newHistory;
   }
+
+  // 사용자별 대화 내역 찾기 또는 생성
+  getOrCreateChatHistory(userId: string, userName?: string): ChatHistory {
+    let history = this.chatHistories.find(h => h.userId === userId);
+    
+    if (!history) {
+      const now = new Date().toISOString();
+      history = {
+        id: Date.now().toString(),
+        userId,
+        userName,
+        messages: [],
+        createdAt: now,
+        updatedAt: now,
+      };
+      this.chatHistories.push(history);
+    } else if (userName && history.userName !== userName) {
+      // 사용자 이름 업데이트
+      history.userName = userName;
+    }
+    
+    return history;
+  }
+
+  // 대화 내역에 메시지 추가
+  addMessageToHistory(
+    userId: string,
+    message: Omit<ChatMessage, 'id' | 'timestamp'>
+  ): ChatMessage {
+    const history = this.getOrCreateChatHistory(userId);
+    const now = new Date().toISOString();
+    
+    const newMessage: ChatMessage = {
+      ...message,
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: now,
+    };
+    
+    history.messages.push(newMessage);
+    history.updatedAt = now;
+    
+    return newMessage;
+  }
+
+  // 대화 내역 업데이트
+  updateChatHistory(id: string, updates: Partial<ChatHistory>): ChatHistory | null {
+    const index = this.chatHistories.findIndex(h => h.id === id);
+    if (index === -1) return null;
+    
+    this.chatHistories[index] = {
+      ...this.chatHistories[index],
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    
+    return this.chatHistories[index];
+  }
 }
 
-// 싱글톤 인스턴스
-export const dataStore = new DataStore();
+// 싱글톤 인스턴스 - Next.js 개발 모드에서 모듈 재로드 시에도 유지되도록 전역 변수 사용
+declare global {
+  // eslint-disable-next-line no-var
+  var __dataStore: DataStore | undefined;
+}
+
+// 전역 변수를 사용하여 모듈 재로드 시에도 동일한 인스턴스 유지
+if (typeof globalThis.__dataStore === 'undefined') {
+  globalThis.__dataStore = new DataStore();
+}
+
+export const dataStore = globalThis.__dataStore;
