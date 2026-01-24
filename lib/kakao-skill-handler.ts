@@ -1,4 +1,5 @@
 import { dataStore } from '@/lib/store';
+import { sendReservationNotificationSMS } from '@/lib/aligo';
 import type { ChatbotSituation, DayOfWeek, Room, Reservation, ReservationStatus, DayPrices } from '@/types';
 import type {
   KakaoSkillRequest,
@@ -370,8 +371,8 @@ function handleReservationRequest(req: KakaoSkillRequest): KakaoSkillResponse {
   const checkInISO = new Date(extra.checkIn as string).toISOString();
   const checkOutISO = new Date(extra.checkOut as string).toISOString();
 
-  // 예약 요청 저장 후 관리자에게 메세지 전송
-  dataStore.addReservation({
+  // 예약 요청 저장
+  const reservation = dataStore.addReservation({
     roomId: extra.roomId as string,
     guestName: userId,
     guestPhone: '010-0000-0000',
@@ -380,6 +381,12 @@ function handleReservationRequest(req: KakaoSkillRequest): KakaoSkillResponse {
     status: 'pending',
     totalPrice: extra.totalPrice as number,
     notes: '',
+  });
+
+  // 관리자에게 SMS 발송 (비동기, 에러는 조용히 처리)
+  sendReservationNotificationSMS(reservation.id).catch((error) => {
+    console.error('[SMS 발송 실패]', error);
+    // SMS 실패해도 예약은 정상 처리됨
   });
 
   return {

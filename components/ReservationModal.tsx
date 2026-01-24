@@ -14,6 +14,7 @@ const statusLabels: Record<ReservationStatus, string> = {
   'checked-in': '체크인',
   'checked-out': '체크아웃',
   cancelled: '취소됨',
+  rejected: '거절됨',
 };
 
 export default function ReservationModal({ reservation, rooms, onClose }: ReservationModalProps) {

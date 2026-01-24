@@ -11,6 +11,7 @@ const statusLabels: Record<ReservationStatus, string> = {
   'checked-in': '체크인',
   'checked-out': '체크아웃',
   cancelled: '취소됨',
+  rejected: '거절됨',
 };
 
 const statusColors: Record<ReservationStatus, string> = {
@@ -19,6 +20,7 @@ const statusColors: Record<ReservationStatus, string> = {
   'checked-in': 'bg-green-100 text-green-800',
   'checked-out': 'bg-gray-100 text-gray-800',
   cancelled: 'bg-red-100 text-red-800',
+  rejected: 'bg-orange-100 text-orange-800',
 };
 
 export default function ReservationsPage() {
@@ -179,7 +181,7 @@ export default function ReservationsPage() {
                             체크아웃
                           </button>
                         )}
-                        {reservation.status !== 'cancelled' && reservation.status !== 'checked-out' && (
+                        {reservation.status !== 'cancelled' && reservation.status !== 'rejected' && reservation.status !== 'checked-out' && (
                           <button
                             onClick={() => handleStatusChange(reservation.id, 'cancelled')}
                             className="text-red-600 hover:text-red-900 text-sm font-medium"

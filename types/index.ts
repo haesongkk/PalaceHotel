@@ -19,7 +19,7 @@ export interface Room {
 }
 
 // 예약 타입
-export type ReservationStatus = 'pending' | 'confirmed' | 'checked-in' | 'checked-out' | 'cancelled';
+export type ReservationStatus = 'pending' | 'confirmed' | 'checked-in' | 'checked-out' | 'cancelled' | 'rejected';
 
 export interface Reservation {
   id: string;
