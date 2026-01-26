@@ -42,6 +42,55 @@ export async function POST(request: NextRequest) {
     // 봇 응답 생성
     const response = handleKakaoSkillRequest(body);
 
+    // 이미지 전송 확인을 위한 로깅
+    if (response.template?.outputs) {
+      for (const output of response.template.outputs) {
+        if ('carousel' in output && output.carousel) {
+          const carousel = output.carousel;
+          if (carousel.type === 'commerceCard' && carousel.items) {
+            carousel.items.forEach((item, idx) => {
+              if ('thumbnails' in item && item.thumbnails) {
+                item.thumbnails.forEach((thumb, thumbIdx) => {
+                  console.log(`[이미지 전송 확인] 카루셀 아이템 ${idx}, 썸네일 ${thumbIdx}:`, {
+                    imageUrl: thumb.imageUrl,
+                    altText: thumb.altText,
+                    hasImage: !!thumb.imageUrl,
+                  });
+                });
+              }
+            });
+          }
+        }
+        if ('listCard' in output && output.listCard) {
+          const listCard = output.listCard;
+          if (listCard.items) {
+            listCard.items.forEach((item, idx) => {
+              if (item.imageUrl) {
+                console.log(`[이미지 전송 확인] 리스트 아이템 ${idx}:`, {
+                  imageUrl: item.imageUrl,
+                  hasImage: !!item.imageUrl,
+                });
+              }
+            });
+          }
+        }
+      }
+    }
+
+    // 응답 크기 확인 (카카오톡 제한: 30,720 bytes)
+    const responseJson = JSON.stringify(response);
+    const responseSize = new Blob([responseJson]).size;
+    const maxSize = 30720;
+    const sizePercent = ((responseSize / maxSize) * 100).toFixed(1);
+    
+    console.log(`[응답 크기] ${responseSize.toLocaleString()} bytes / ${maxSize.toLocaleString()} bytes (${sizePercent}%)`);
+    
+    if (responseSize > maxSize) {
+      console.error(`[경고] 응답 크기가 제한을 초과했습니다! ${responseSize - maxSize} bytes 초과`);
+    } else if (responseSize > maxSize * 0.9) {
+      console.warn(`[주의] 응답 크기가 제한에 근접했습니다. (${sizePercent}% 사용 중)`);
+    }
+
     // 봇 응답 저장 (store는 outputs를 Record[]로 기대함)
     const storedResponse: BotResponse = {
       ...response,

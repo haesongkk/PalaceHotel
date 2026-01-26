@@ -39,11 +39,11 @@ class DataStore {
       sunday: { stayPrice: 150000, dayUsePrice: 70000 },
     };
 
-    // 샘플 객실 데이터
+    // 샘플 객실 데이터 (짧은 이미지 URL 사용)
     this.rooms = [
       {
         id: '1',
-        imageUrl: 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=800',
+        imageUrl: 'https://picsum.photos/800/600?random=1',
         type: '스탠다드',
         prices: defaultPrices,
         dayUseCheckIn: '10:00',
@@ -54,7 +54,7 @@ class DataStore {
       },
       {
         id: '2',
-        imageUrl: 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800',
+        imageUrl: 'https://picsum.photos/800/600?random=2',
         type: '디럭스',
         prices: {
           monday: { stayPrice: 150000, dayUsePrice: 70000 },
@@ -73,7 +73,7 @@ class DataStore {
       },
       {
         id: '3',
-        imageUrl: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800',
+        imageUrl: 'https://picsum.photos/800/600?random=3',
         type: '스위트',
         prices: {
           monday: { stayPrice: 250000, dayUsePrice: 120000 },

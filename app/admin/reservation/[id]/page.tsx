@@ -20,24 +20,41 @@ export default function AdminReservationPage() {
 
   const fetchReservation = async () => {
     try {
+      console.log('[예약 페이지] 예약 조회 시작:', reservationId);
+      
       const [reservationRes, roomsRes] = await Promise.all([
         fetch(`/api/reservations/${reservationId}`),
         fetch('/api/rooms'),
       ]);
 
+      console.log('[예약 페이지] API 응답:', {
+        reservationStatus: reservationRes.status,
+        roomsStatus: roomsRes.status,
+      });
+
       if (!reservationRes.ok) {
-        throw new Error('예약을 찾을 수 없습니다.');
+        const errorData = await reservationRes.json().catch(() => ({}));
+        console.error('[예약 페이지] 예약 조회 실패:', {
+          status: reservationRes.status,
+          error: errorData,
+        });
+        throw new Error(`예약을 찾을 수 없습니다. (${reservationRes.status})`);
       }
 
       const reservationData: Reservation = await reservationRes.json();
       const roomsData: Room[] = await roomsRes.json();
       const roomData = roomsData.find((r) => r.id === reservationData.roomId);
 
+      console.log('[예약 페이지] 예약 데이터 로드 완료:', {
+        reservationId: reservationData.id,
+        roomType: roomData?.type,
+      });
+
       setReservation(reservationData);
       setRoom(roomData ?? null);
     } catch (error) {
-      console.error('Failed to fetch reservation:', error);
-      alert('예약 정보를 불러오는데 실패했습니다.');
+      console.error('[예약 페이지] 오류:', error);
+      alert(`예약 정보를 불러오는데 실패했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
     } finally {
       setLoading(false);
     }
@@ -95,14 +112,30 @@ export default function AdminReservationPage() {
 
   if (!reservation) {
     return (
-      <div className="min-h-screen bg-[#abc1d1] flex flex-col items-center justify-center gap-4">
-        <div className="text-lg text-gray-800">예약을 찾을 수 없습니다.</div>
-        <button
-          onClick={() => router.push('/reservations')}
-          className="px-4 py-2 bg-white rounded-lg shadow hover:bg-gray-50"
-        >
-          예약 목록으로
-        </button>
+      <div className="min-h-screen bg-[#abc1d1] flex flex-col items-center justify-center gap-4 px-4">
+        <div className="text-lg text-gray-800 text-center">
+          예약을 찾을 수 없습니다.
+        </div>
+        <div className="text-sm text-gray-600 text-center">
+          예약 ID: {reservationId}
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => router.push('/reservations')}
+            className="px-4 py-2 bg-white rounded-lg shadow hover:bg-gray-50"
+          >
+            예약 목록으로
+          </button>
+          <button
+            onClick={() => {
+              console.log('[예약 페이지] 새로고침 시도');
+              fetchReservation();
+            }}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600"
+          >
+            다시 시도
+          </button>
+        </div>
       </div>
     );
   }

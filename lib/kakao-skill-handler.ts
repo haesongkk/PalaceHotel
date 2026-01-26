@@ -15,6 +15,55 @@ import type {
   KakaoButton,
 } from '@/types/kakao';
 
+/* ---------------------------
+ * 이미지 URL 단축 유틸리티
+ * --------------------------- */
+
+/**
+ * BASE_URL 가져오기
+ */
+function getBaseUrl(): string {
+  return (
+    process.env.BASE_URL?.trim() ||
+    process.env.RENDER_EXTERNAL_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '') ||
+    'http://localhost:3000'
+  ).replace(/\/$/, ''); // 끝의 슬래시 제거
+}
+
+/**
+ * 이미지 URL을 짧은 경로로 변환하는 함수
+ * 카카오톡 응답 크기 제한(30,720 bytes)을 준수하기 위해 필요
+ * BASE_URL을 사용하여 짧은 경로 생성: /api/images/room/[roomId]
+ */
+function shortenImageUrl(url: string | undefined | null, roomId?: string): string {
+  if (!url) {
+    // 이미지가 없으면 기본 placeholder
+    return 'https://picsum.photos/800/600';
+  }
+  
+  // 이미 짧은 URL이면 그대로 반환 (50자 미만)
+  if (url.length < 50) return url;
+  
+  // data URL (base64)인 경우 - roomId가 있으면 짧은 경로로 변환
+  if (url.startsWith('data:')) {
+    if (roomId) {
+      const baseUrl = getBaseUrl();
+      return `${baseUrl}/api/images/room/${roomId}`;
+    }
+    // roomId가 없으면 기본 placeholder
+    return 'https://picsum.photos/800/600';
+  }
+  
+  // 외부 URL인 경우 - roomId가 있으면 짧은 경로로 변환
+  if (roomId && (url.startsWith('http://') || url.startsWith('https://'))) {
+    const baseUrl = getBaseUrl();
+    return `${baseUrl}/api/images/room/${roomId}`;
+  }
+  
+  // roomId가 없거나 변환할 수 없는 경우 원본 반환
+  return url;
+}
 
 const KEYWORD_MAP: { keyword: string; situation: ChatbotSituation }[] = [
   { keyword: '오늘대실', situation: 'today_day_use' },
@@ -90,7 +139,7 @@ function createRoomItem(room: Room, checkIn: Date, checkOut: Date): KakaoCarouse
     discountRate: discountRate,
     discountedPrice: discountedPrice,
     thumbnails: [{
-      imageUrl: room.imageUrl || 'https://via.placeholder.com/800x600?text=Room',
+      imageUrl: shortenImageUrl(room.imageUrl, room.id),
       altText: room.type,
     }],
     buttons: [
@@ -119,10 +168,11 @@ function createRoomCarousel(checkIn: Date, checkOut: Date): KakaoOutputComponent
 }
 
 function createHistoryItem(reservation: Reservation): KakaoListItem {
+  const room = dataStore.getRoom(reservation.roomId);
   return {
-    title: `${dataStore.getRoom(reservation.roomId)?.type ?? ''} ${new Date(reservation.checkIn).toLocaleDateString()} 입실 ~ ${new Date(reservation.checkOut).toLocaleDateString()} 퇴실`,
+    title: `${room?.type ?? ''} ${new Date(reservation.checkIn).toLocaleDateString()} 입실 ~ ${new Date(reservation.checkOut).toLocaleDateString()} 퇴실`,
     description: reservation.status,
-    imageUrl: dataStore.getRoom(reservation.roomId)?.imageUrl ?? '',
+    imageUrl: room ? shortenImageUrl(room.imageUrl, room.id) : undefined,
     action: "message",
     messageText: `예약내역 조회: ${reservation.roomId}`,
     extra: {

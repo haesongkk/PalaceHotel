@@ -82,19 +82,23 @@ export async function sendSMS(options: AligoSendSMSOptions): Promise<AligoRespon
  */
 export async function sendReservationNotificationSMS(reservationId: string): Promise<AligoResponse> {
   // Render, Vercel 등 다양한 플랫폼 지원
-  const baseUrl = 
-    process.env.BASE_URL || 
-    process.env.RENDER_EXTERNAL_URL || 
+  const baseUrl = (
+    process.env.BASE_URL?.trim() || 
+    process.env.RENDER_EXTERNAL_URL?.trim() || 
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
-    'http://localhost:3000';
+    'http://localhost:3000'
+  ).replace(/\/$/, ''); // 끝의 슬래시 제거
+  
   const adminPhone = process.env.ALIGO_ADMIN_PHONE;
 
   if (!adminPhone) {
     throw new Error('관리자 전화번호가 설정되지 않았습니다. ALIGO_ADMIN_PHONE을 .env에 설정하세요.');
   }
 
-  const link = `${baseUrl}/admin/reservation/${reservationId}`;
+  const link = `${baseUrl}/reservations/${reservationId}`;
   const message = `[팰리스호텔] 새로운 예약 요청이 있습니다. 나중에 카카오톡으로 보내드립니다. 확인: ${link}`;
+
+  console.log('[SMS 링크 생성]', { baseUrl, link, reservationId });
 
   return sendSMS({
     receiver: adminPhone,
