@@ -78,27 +78,16 @@ export async function sendSMS(options: AligoSendSMSOptions): Promise<AligoRespon
 
 /**
  * 예약 요청 알림 SMS 발송
- * 관리자에게 "나중에 카톡으로 보낼 예정" 안내 + 링크만 전송
+ * 관리자에게 확인 알림만 전송 (링크 없음 → 관리자 채널에서 확인)
  */
-export async function sendReservationNotificationSMS(reservationId: string): Promise<AligoResponse> {
-  // Render, Vercel 등 다양한 플랫폼 지원
-  const baseUrl = (
-    process.env.BASE_URL?.trim() || 
-    process.env.RENDER_EXTERNAL_URL?.trim() || 
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
-    'http://localhost:3000'
-  ).replace(/\/$/, ''); // 끝의 슬래시 제거
-  
+export async function sendReservationNotificationSMS(_reservationId: string): Promise<AligoResponse> {
   const adminPhone = process.env.ALIGO_ADMIN_PHONE;
 
   if (!adminPhone) {
     throw new Error('관리자 전화번호가 설정되지 않았습니다. ALIGO_ADMIN_PHONE을 .env에 설정하세요.');
   }
 
-  const link = `${baseUrl}/reservations/${reservationId}`;
-  const message = `[팰리스호텔] 새로운 예약 요청이 있습니다. 나중에 카카오톡으로 보내드립니다. 확인: ${link}`;
-
-  console.log('[SMS 링크 생성]', { baseUrl, link, reservationId });
+  const message = `[팰리스호텔] 새로운 예약 요청이 있습니다. 관리자 채널에서 확인해 주세요.`;
 
   return sendSMS({
     receiver: adminPhone,
