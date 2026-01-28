@@ -10,6 +10,7 @@ export interface Room {
   id: string;
   imageUrl?: string; // 대표 이미지 URL
   type: string; // 예: '스탠다드', '디럭스', '스위트'
+  discountRate?: number; // 할인율(%) - 없으면 0으로 간주
   prices: Record<DayOfWeek, DayPrices>; // 요일별 숙박/대실 가격
   dayUseCheckIn: string; // 대실 입실시간 (HH:mm)
   dayUseCheckOut: string; // 대실 퇴실시간 (HH:mm)

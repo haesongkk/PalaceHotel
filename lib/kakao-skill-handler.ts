@@ -126,17 +126,17 @@ function createRoomItem(room: Room, checkIn: Date, checkOut: Date): KakaoCarouse
     }
   }
 
-  // 임시 할인 적용
-  const discountedPrice = price * 0.9;
+  const rate = Math.min(100, Math.max(0, room.discountRate ?? 0));
+  const discountedPrice = rate > 0 ? Math.round(price * (1 - rate / 100)) : price;
   const discount = price - discountedPrice;
-  const discountRate = discount / price * 100;
 
   return {
     title: room.type,
+    description: room.description,
     price: price,
     currency: 'won',
     discount: discount,
-    discountRate: discountRate,
+    discountRate: rate,
     discountedPrice: discountedPrice,
     thumbnails: [{
       imageUrl: shortenImageUrl(room.imageUrl, room.id),

@@ -45,6 +45,7 @@ class DataStore {
         id: '1',
         imageUrl: 'https://picsum.photos/800/600?random=1',
         type: '스탠다드',
+        discountRate: 10,
         prices: defaultPrices,
         dayUseCheckIn: '10:00',
         dayUseCheckOut: '18:00',
@@ -56,6 +57,7 @@ class DataStore {
         id: '2',
         imageUrl: 'https://picsum.photos/800/600?random=2',
         type: '디럭스',
+        discountRate: 10,
         prices: {
           monday: { stayPrice: 150000, dayUsePrice: 70000 },
           tuesday: { stayPrice: 150000, dayUsePrice: 70000 },
@@ -75,6 +77,7 @@ class DataStore {
         id: '3',
         imageUrl: 'https://picsum.photos/800/600?random=3',
         type: '스위트',
+        discountRate: 10,
         prices: {
           monday: { stayPrice: 250000, dayUsePrice: 120000 },
           tuesday: { stayPrice: 250000, dayUsePrice: 120000 },

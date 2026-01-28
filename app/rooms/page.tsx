@@ -5,16 +5,6 @@ import Layout from '@/components/Layout';
 import { Room, DayOfWeek } from '@/types';
 import RoomModal from '@/components/RoomModal';
 
-const dayLabels: Record<DayOfWeek, string> = {
-  monday: '월',
-  tuesday: '화',
-  wednesday: '수',
-  thursday: '목',
-  friday: '금',
-  saturday: '토',
-  sunday: '일',
-};
-
 const daysOfWeek: DayOfWeek[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
 export default function RoomsPage() {
@@ -74,15 +64,15 @@ export default function RoomsPage() {
     fetchRooms();
   };
 
-  const getPriceRange = (room: Room) => {
-    const allStayPrices = daysOfWeek.map(day => room.prices[day].stayPrice);
-    const allDayUsePrices = daysOfWeek.map(day => room.prices[day].dayUsePrice);
-    const minStay = Math.min(...allStayPrices);
-    const maxStay = Math.max(...allStayPrices);
-    const minDayUse = Math.min(...allDayUsePrices);
-    const maxDayUse = Math.max(...allDayUsePrices);
-    return { minStay, maxStay, minDayUse, maxDayUse };
+  const getRepresentativePrice = (room: Room) => {
+    // 기본값(가정): 대실 최저가를 대표 가격으로 사용
+    const allDayUsePrices = daysOfWeek.map((day) => room.prices[day].dayUsePrice);
+    return Math.min(...allDayUsePrices);
   };
+
+  const formatWon = (value: number) => `${Math.round(value).toLocaleString()}원`;
+
+  const clampRate = (rate: number) => Math.min(100, Math.max(0, rate));
 
   if (loading) {
     return (
@@ -112,19 +102,21 @@ export default function RoomsPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {rooms.map((room) => {
-            const { minStay, maxStay, minDayUse, maxDayUse } = getPriceRange(room);
+            const price = getRepresentativePrice(room);
+            const rate = clampRate(room.discountRate ?? 0);
+            const discountedPrice = rate > 0 ? Math.round(price * (1 - rate / 100)) : price;
             return (
               <div
                 key={room.id}
-                className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 group"
+                className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-200"
               >
                 {/* 이미지 영역 */}
-                <div className="relative h-56 overflow-hidden bg-gray-100">
+                <div className="relative h-44 overflow-hidden bg-gray-100">
                   {room.imageUrl ? (
                     <img
                       src={room.imageUrl}
                       alt={room.type}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-cover"
                       onError={(e) => {
                         (e.target as HTMLImageElement).style.display = 'none';
                       }}
@@ -136,100 +128,58 @@ export default function RoomsPage() {
                       </svg>
                     </div>
                   )}
-                  <div className="absolute top-3 right-3">
-                    <span className="bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-semibold text-gray-700 shadow-sm">
-                      {room.type}
-                    </span>
-                  </div>
                 </div>
 
                 {/* 정보 영역 */}
-                <div className="p-5">
-                  {/* 설명 */}
+                <div className="pt-4">
+                  {/* 타이틀(이미지 아래 첫 줄) */}
+                  <div className="px-4 text-base font-semibold text-gray-900">{room.type}</div>
+
+                  {/* 가격/할인 */}
+                  <div className="px-4 mt-1 flex items-baseline gap-2">
+                    <span className="text-2xl font-extrabold text-gray-900">
+                      {formatWon(discountedPrice)}
+                    </span>
+                    {rate > 0 && (
+                      <>
+                        <span className="text-sm text-gray-400 line-through">
+                          {formatWon(price)}
+                        </span>
+                        <span className="text-sm font-semibold text-red-500">
+                          {rate}%
+                        </span>
+                      </>
+                    )}
+                  </div>
+
                   {room.description && (
-                    <p className="text-sm text-gray-600 mb-4 line-clamp-2">{room.description}</p>
+                    <>
+                      {/* 가격-설명 사이 구분선(카톡 카드 스타일) */}
+                      <div className="mt-4 border-t border-gray-200 mx-4" />
+
+                      {/* 설명(가격 아래, 연한 톤) */}
+                      <div className="px-4 mt-3 mb-2 text-sm text-gray-500">
+                        {room.description}
+                      </div>
+                    </>
                   )}
 
-                  {/* 입실/퇴실 시간 */}
-                  <div className="mb-4 space-y-2">
-                    <div className="flex items-center gap-3 text-xs">
-                      <div className="flex items-center gap-1.5 text-blue-600">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <span className="font-medium">대실</span>
-                      </div>
-                      <span className="text-gray-500">
-                        {room.dayUseCheckIn} ~ {room.dayUseCheckOut}
-                      </span>
+                  {/* 버튼 영역(카톡의 '예약하기' 자리) */}
+                  <div className="mt-4 border-t border-gray-200 bg-gray-50 p-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => handleEdit(room)}
+                        className="w-full py-2.5 bg-white border border-gray-200 text-gray-800 text-sm font-medium rounded-md hover:bg-gray-100 transition-colors"
+                      >
+                        수정
+                      </button>
+                      <button
+                        onClick={() => handleDelete(room.id)}
+                        className="w-full py-2.5 bg-white border border-gray-200 text-red-600 text-sm font-medium rounded-md hover:bg-red-50 transition-colors"
+                      >
+                        삭제
+                      </button>
                     </div>
-                    <div className="flex items-center gap-3 text-xs">
-                      <div className="flex items-center gap-1.5 text-purple-600">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <span className="font-medium">숙박</span>
-                      </div>
-                      <span className="text-gray-500">
-                        {room.stayCheckIn} ~ {room.stayCheckOut}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 가격 정보 */}
-                  <div className="mb-4 space-y-2.5">
-                    <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span className="text-xs font-semibold text-blue-700">숙박</span>
-                        </div>
-                        <span className="text-sm font-bold text-blue-900">
-                          {minStay === maxStay
-                            ? `${minStay.toLocaleString()}원`
-                            : `${minStay.toLocaleString()} ~ ${maxStay.toLocaleString()}원`}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="bg-purple-50 rounded-lg p-3 border border-purple-100">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span className="text-xs font-semibold text-purple-700">대실</span>
-                        </div>
-                        <span className="text-sm font-bold text-purple-900">
-                          {minDayUse === maxDayUse
-                            ? `${minDayUse.toLocaleString()}원`
-                            : `${minDayUse.toLocaleString()} ~ ${maxDayUse.toLocaleString()}원`}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 액션 버튼 */}
-                  <div className="flex gap-2 pt-3 border-t border-gray-100">
-                    <button
-                      onClick={() => handleEdit(room)}
-                      className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                      수정
-                    </button>
-                    <button
-                      onClick={() => handleDelete(room.id)}
-                      className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                      삭제
-                    </button>
                   </div>
                 </div>
               </div>

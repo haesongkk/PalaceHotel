@@ -34,6 +34,7 @@ export default function RoomModal({ room, onClose }: RoomModalProps) {
   const [formData, setFormData] = useState({
     imageUrl: '',
     type: '',
+    discountRate: 0,
     prices: defaultPrices,
     dayUseCheckIn: '10:00',
     dayUseCheckOut: '18:00',
@@ -49,6 +50,7 @@ export default function RoomModal({ room, onClose }: RoomModalProps) {
       setFormData({
         imageUrl: room.imageUrl || '',
         type: room.type,
+        discountRate: room.discountRate ?? 0,
         prices: room.prices,
         dayUseCheckIn: room.dayUseCheckIn,
         dayUseCheckOut: room.dayUseCheckOut,
@@ -60,6 +62,7 @@ export default function RoomModal({ room, onClose }: RoomModalProps) {
       setFormData({
         imageUrl: '',
         type: '',
+        discountRate: 0,
         prices: defaultPrices,
         dayUseCheckIn: '10:00',
         dayUseCheckOut: '18:00',
@@ -129,6 +132,7 @@ export default function RoomModal({ room, onClose }: RoomModalProps) {
     const data = {
       imageUrl: formData.imageUrl || undefined,
       type: formData.type,
+      discountRate: Math.min(100, Math.max(0, Number(formData.discountRate) || 0)),
       prices: formData.prices,
       dayUseCheckIn: formData.dayUseCheckIn,
       dayUseCheckOut: formData.dayUseCheckOut,
@@ -266,6 +270,22 @@ export default function RoomModal({ room, onClose }: RoomModalProps) {
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 placeholder="예: 스탠다드, 디럭스, 스위트"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                할인율(%)
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                value={formData.discountRate}
+                onChange={(e) => setFormData({ ...formData, discountRate: parseInt(e.target.value) || 0 })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="예: 10"
+              />
+              <p className="mt-1 text-xs text-gray-500">0이면 할인 표시가 숨겨집니다.</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
