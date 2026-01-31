@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dataStore } from '@/lib/store';
-import { sendReservationStatusSMS } from '@/lib/aligo';
+import { sendReservationStatusAlimtalk } from '@/lib/alimtalk';
 import type { ReservationStatus } from '@/types';
 
 export async function GET(
@@ -49,21 +49,16 @@ export async function PUT(
       return NextResponse.json({ error: 'Reservation not found' }, { status: 404 });
     }
 
-    // 상태가 pending에서 confirmed 또는 rejected로 변경된 경우에만 SMS 발송
+    // 상태가 pending에서 confirmed 또는 rejected로 변경된 경우에만 알림톡 발송
     if (oldStatus === 'pending' && (newStatus === 'confirmed' || newStatus === 'rejected')) {
-      // 객실 정보 가져오기
       const room = dataStore.getRoom(reservation.roomId);
       const roomType = room?.type ?? '객실';
-
-      // 상황에 맞는 메시지 템플릿 가져오기
       const situation = newStatus === 'confirmed' ? 'reservation_confirmed' : 'reservation_rejected';
-      const messageTemplate = dataStore.getChatbotMessage(situation)?.message;
 
-      if (messageTemplate && reservation.guestPhone) {
-        // SMS 발송 (비동기, 에러는 조용히 처리)
-        sendReservationStatusSMS(
+      if (reservation.guestPhone) {
+        sendReservationStatusAlimtalk(
           reservation.guestPhone,
-          messageTemplate,
+          situation,
           {
             roomType,
             checkIn: reservation.checkIn,
@@ -71,8 +66,8 @@ export async function PUT(
             totalPrice: newStatus === 'confirmed' ? reservation.totalPrice : undefined,
           }
         ).catch((error) => {
-          console.error(`[SMS 발송 실패] 예약 ${reservation.id} ${newStatus}`, error);
-          // SMS 실패해도 예약 상태는 정상 업데이트됨
+          console.error(`[알림톡 발송 실패] 예약 ${reservation.id} ${newStatus}`, error);
+          // 알림톡 실패해도 예약 상태는 정상 업데이트됨
         });
       }
     }

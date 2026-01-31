@@ -1,0 +1,45 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getTemplateList, createTemplate } from '@/lib/alimtalk';
+
+/**
+ * GET: 알림톡 템플릿 목록 조회
+ */
+export async function GET() {
+  try {
+    const list = await getTemplateList();
+    return NextResponse.json(list);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '템플릿 목록 조회 실패';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+/**
+ * POST: 신규 템플릿 생성
+ * body: { tpl_name, tpl_content, tpl_type?, tpl_emtype?, tpl_title?, tpl_stitle?, tpl_button? }
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { tpl_name, tpl_content, tpl_type, tpl_emtype, tpl_title, tpl_stitle, tpl_button } = body;
+    if (!tpl_name || !tpl_content) {
+      return NextResponse.json(
+        { error: 'tpl_name, tpl_content는 필수입니다.' },
+        { status: 400 }
+      );
+    }
+    const data = await createTemplate({
+      tpl_name,
+      tpl_content,
+      tpl_type,
+      tpl_emtype,
+      tpl_title,
+      tpl_stitle,
+      tpl_button,
+    });
+    return NextResponse.json(data);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '템플릿 생성 실패';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

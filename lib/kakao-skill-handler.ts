@@ -1,5 +1,5 @@
 import { dataStore } from '@/lib/store';
-import { sendReservationNotificationSMS } from '@/lib/aligo';
+import { sendReservationNotificationAlimtalk } from '@/lib/alimtalk';
 import type { ChatbotSituation, DayOfWeek, Room, Reservation, ReservationStatus, DayPrices } from '@/types';
 import type {
   KakaoSkillRequest,
@@ -551,10 +551,10 @@ function handleReservationWithPhone(
   // 임시 예약 정보 삭제
   dataStore.deletePendingReservation(userId);
 
-  // 관리자에게 SMS 발송 (비동기, 에러는 조용히 처리)
-  sendReservationNotificationSMS(reservation.id).catch((error) => {
-    console.error('[SMS 발송 실패]', error);
-    // SMS 실패해도 예약은 정상 처리됨
+  // 관리자에게 알림톡 발송 (비동기, 에러는 조용히 처리)
+  sendReservationNotificationAlimtalk(reservation.id).catch((error) => {
+    console.error('[알림톡 발송 실패]', error);
+    // 알림톡 실패해도 예약은 정상 처리됨
   });
 
   return {
