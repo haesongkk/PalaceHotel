@@ -20,13 +20,21 @@ export interface Room {
 }
 
 // 예약 타입
-export type ReservationStatus = 'pending' | 'confirmed' | 'checked-in' | 'checked-out' | 'cancelled' | 'rejected';
+export type ReservationStatus =
+  | 'pending'           // 대기
+  | 'confirmed'         // 확정
+  | 'rejected'          // 거절
+  | 'cancelled_by_guest'  // 고객 취소
+  | 'cancelled_by_admin'; // 관리자 취소
 
 export interface Reservation {
   id: string;
   roomId: string;
+  /** 카카오 예약 시 카카오 userId가 들어갈 수 있음. 표시용 이름은 userName 등 별도 표시 권장 */
   guestName: string;
   guestPhone: string;
+  /** 카카오 채널로 들어온 예약인 경우 카카오 사용자 ID (대화 내역 연결용) */
+  userId?: string;
   checkIn: string; // ISO date string
   checkOut: string; // ISO date string
   status: ReservationStatus;

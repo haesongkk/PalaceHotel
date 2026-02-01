@@ -93,7 +93,11 @@ export async function getTemplateList(): Promise<AlimtalkTemplate[]> {
   if (res.code !== 0) {
     throw new Error(`알림톡 템플릿 목록 조회 실패: ${res.message}`);
   }
-  return res.list ?? [];
+  const raw = res.list ?? [];
+  const list = Array.isArray(raw) && raw.length > 0 && Array.isArray(raw[0])
+    ? (raw as AlimtalkTemplate[][]).flat()
+    : raw;
+  return list as AlimtalkTemplate[];
 }
 
 /**

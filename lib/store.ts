@@ -95,38 +95,8 @@ class DataStore {
       },
     ];
 
-    // 샘플 예약 데이터
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const dayAfter = new Date(today);
-    dayAfter.setDate(dayAfter.getDate() + 2);
-
-    this.reservations = [
-      {
-        id: '1',
-        roomId: '1',
-        guestName: '홍길동',
-        guestPhone: '010-1234-5678',
-        checkIn: tomorrow.toISOString(),
-        checkOut: dayAfter.toISOString(),
-        status: 'confirmed',
-        totalPrice: 200000,
-        notes: '늦은 체크인 요청',
-        createdAt: today.toISOString(),
-      },
-      {
-        id: '2',
-        roomId: '2',
-        guestName: '김영희',
-        guestPhone: '010-9876-5432',
-        checkIn: today.toISOString(),
-        checkOut: tomorrow.toISOString(),
-        status: 'checked-in',
-        totalPrice: 150000,
-        createdAt: new Date(today.getTime() - 86400000).toISOString(),
-      },
-    ];
+    // 예약 데이터는 빈 배열로 시작 (실제 예약은 카카오 채널/API로 추가됨)
+    this.reservations = [];
 
     // 샘플 챗봇 멘트 데이터 (10가지 상황 모두 초기화)
     const situations: ChatbotSituation[] = [
@@ -262,6 +232,10 @@ class DataStore {
 
   getChatHistory(id: string): ChatHistory | undefined {
     return this.chatHistories.find(history => history.id === id);
+  }
+
+  getChatHistoryByUserId(userId: string): ChatHistory | undefined {
+    return this.chatHistories.find(history => history.userId === userId);
   }
 
   addChatHistory(history: Omit<ChatHistory, 'id' | 'createdAt' | 'updatedAt'>): ChatHistory {

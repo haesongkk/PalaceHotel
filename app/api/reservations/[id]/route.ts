@@ -49,8 +49,11 @@ export async function PUT(
       return NextResponse.json({ error: 'Reservation not found' }, { status: 404 });
     }
 
-    // 상태가 pending에서 confirmed 또는 rejected로 변경된 경우에만 알림톡 발송
-    if (oldStatus === 'pending' && (newStatus === 'confirmed' || newStatus === 'rejected')) {
+    // 상태가 pending에서 confirmed 또는 rejected로 변경된 경우에만 고객에게 알림톡 발송
+    if (
+      oldStatus === 'pending' &&
+      (newStatus === 'confirmed' || newStatus === 'rejected')
+    ) {
       const room = dataStore.getRoom(reservation.roomId);
       const roomType = room?.type ?? '객실';
       const situation = newStatus === 'confirmed' ? 'reservation_confirmed' : 'reservation_rejected';

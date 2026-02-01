@@ -9,12 +9,11 @@ interface ReservationModalProps {
 }
 
 const statusLabels: Record<ReservationStatus, string> = {
-  pending: '대기 중',
-  confirmed: '확인됨',
-  'checked-in': '체크인',
-  'checked-out': '체크아웃',
-  cancelled: '취소됨',
-  rejected: '거절됨',
+  pending: '대기',
+  confirmed: '확정',
+  rejected: '거절',
+  cancelled_by_guest: '고객 취소',
+  cancelled_by_admin: '관리자 취소',
 };
 
 export default function ReservationModal({ reservation, rooms, onClose }: ReservationModalProps) {
