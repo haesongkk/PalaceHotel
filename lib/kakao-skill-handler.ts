@@ -553,11 +553,11 @@ function handleReservationWithPhone(
   // 임시 예약 정보 삭제
   dataStore.deletePendingReservation(userId);
 
-  // 관리자에게 알림톡 발송 (비동기, 에러는 조용히 처리) — 잠시 비활성화
-  // sendReservationNotificationAlimtalk(reservation.id).catch((error) => {
-  //   console.error('[알림톡 발송 실패]', error);
-  //   // 알림톡 실패해도 예약은 정상 처리됨
-  // });
+  // 관리자에게 알림톡 발송 (비동기, 에러는 조용히 처리)
+  sendReservationNotificationAlimtalk(reservation.id).catch((error) => {
+    console.error('[알림톡 발송 실패]', error);
+    // 알림톡 실패해도 예약은 정상 처리됨
+  });
 
   return {
     version: '2.0',

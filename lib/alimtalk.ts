@@ -254,25 +254,39 @@ function formatDateForAlimtalk(dateString: string): string {
   return `${year}년 ${month}월 ${day}일`;
 }
 
-/** 관리자용 새 예약 알림 템플릿 코드 (.env: ALIMTALK_TEMPLATE_ADMIN) */
-const TEMPLATE_ADMIN = process.env.ALIMTALK_TEMPLATE_ADMIN;
-/** 고객용 예약 확정 템플릿 코드 (.env: ALIMTALK_TEMPLATE_CONFIRMED) */
-const TEMPLATE_CONFIRMED = process.env.ALIMTALK_TEMPLATE_CONFIRMED;
-/** 고객용 예약 거절 템플릿 코드 (.env: ALIMTALK_TEMPLATE_REJECTED) */
-const TEMPLATE_REJECTED = process.env.ALIMTALK_TEMPLATE_REJECTED;
+/** 알림톡 템플릿 이름 (등록된 템플릿명과 정확히 일치해야 함) */
+const TEMPLATE_NAME_ADMIN = '관리자 알림';
+const TEMPLATE_NAME_CONFIRMED = '예약 확정 안내';
+const TEMPLATE_NAME_REJECTED = '예약 거절 안내';
+
+/**
+ * 템플릿 이름으로 템플릿 코드 조회 (승인된 템플릿만)
+ * inspStatus === 'APR' 이면 발송 가능. status 'A'(정상) 또는 'R'(대기) 둘 다 허용 (알리고 API 응답 예: status R + inspStatus APR)
+ */
+async function getTemplateCodeByName(templateName: string): Promise<string | null> {
+  const list = await getTemplateList();
+  const t = list.find(
+    (x) =>
+      (x.templtName ?? '').trim() === templateName &&
+      x.inspStatus === 'APR' &&
+      x.status !== 'S'
+  );
+  return t?.templtCode ?? null;
+}
 
 /**
  * 예약 요청 알림 (관리자에게 알림톡)
+ * 템플릿 "관리자 알림"을 이름으로 조회하여 사용
  */
 export async function sendReservationNotificationAlimtalk(reservationId: string): Promise<SendAlimtalkResult> {
   const adminPhone = process.env.ALIGO_ADMIN_PHONE;
   if (!adminPhone) {
     throw new Error('관리자 전화번호가 설정되지 않았습니다. ALIGO_ADMIN_PHONE을 .env에 설정하세요.');
   }
-  const tplCode = TEMPLATE_ADMIN;
+  const tplCode = await getTemplateCodeByName(TEMPLATE_NAME_ADMIN);
   if (!tplCode) {
     throw new Error(
-      '관리자 알림 템플릿 코드가 없습니다. 알림톡 템플릿 승인 후 .env에 ALIMTALK_TEMPLATE_ADMIN을 설정하세요.'
+      `"${TEMPLATE_NAME_ADMIN}" 템플릿을 찾을 수 없습니다. 챗봇 멘트에서 알림톡 템플릿을 등록·승인해주세요.`
     );
   }
   const content = await getTemplateContent(tplCode);
@@ -287,11 +301,12 @@ export async function sendReservationNotificationAlimtalk(reservationId: string)
 
 /**
  * 예약 확정/거절 알림 (고객에게 알림톡)
- * 템플릿 본문은 #{roomType}, #{checkIn}, #{checkOut}, #{totalPrice}(확정 시만) 사용
+ * 템플릿 "예약 확정 안내", "예약 거절 안내"를 이름으로 조회하여 사용
+ * 본문 변수: #{roomType}, #{checkIn}, #{checkOut}, #{totalPrice}(확정 시만)
  */
 export async function sendReservationStatusAlimtalk(
   phoneNumber: string,
-  situation: 'reservation_confirmed' | 'reservation_rejected',
+  status: 'confirmed' | 'rejected',
   reservationInfo: {
     roomType: string;
     checkIn: string;
@@ -299,15 +314,16 @@ export async function sendReservationStatusAlimtalk(
     totalPrice?: number;
   }
 ): Promise<SendAlimtalkResult> {
-  const tplCode = situation === 'reservation_confirmed' ? TEMPLATE_CONFIRMED : TEMPLATE_REJECTED;
+  const templateName = status === 'confirmed' ? TEMPLATE_NAME_CONFIRMED : TEMPLATE_NAME_REJECTED;
+  const tplCode = await getTemplateCodeByName(templateName);
   if (!tplCode) {
-    const key =
-      situation === 'reservation_confirmed' ? 'ALIMTALK_TEMPLATE_CONFIRMED' : 'ALIMTALK_TEMPLATE_REJECTED';
-    throw new Error(`알림톡 템플릿 코드가 없습니다. .env에 ${key}를 설정하세요.`);
+    throw new Error(
+      `"${templateName}" 템플릿을 찾을 수 없습니다. 챗봇 멘트에서 알림톡 템플릿을 등록·승인해주세요.`
+    );
   }
   const content = await getTemplateContent(tplCode);
   if (!content) {
-    throw new Error(`템플릿 코드 ${tplCode}의 본문을 가져올 수 없습니다.`);
+    throw new Error(`템플릿 "${templateName}"의 본문을 가져올 수 없습니다.`);
   }
   const checkIn = formatDateForAlimtalk(reservationInfo.checkIn);
   const checkOut = formatDateForAlimtalk(reservationInfo.checkOut);
@@ -318,7 +334,7 @@ export async function sendReservationStatusAlimtalk(
   if (reservationInfo.totalPrice !== undefined) {
     message = message.replace(/#{totalPrice}/g, reservationInfo.totalPrice.toLocaleString());
   }
-  const subject = situation === 'reservation_confirmed' ? '예약 확정 안내' : '예약 안내';
+  const subject = status === 'confirmed' ? '예약 확정 안내' : '예약 안내';
   return sendAlimtalk({
     tpl_code: tplCode,
     receiver: phoneNumber,

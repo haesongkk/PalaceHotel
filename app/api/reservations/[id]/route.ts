@@ -56,12 +56,11 @@ export async function PUT(
     ) {
       const room = dataStore.getRoom(reservation.roomId);
       const roomType = room?.type ?? '객실';
-      const situation = newStatus === 'confirmed' ? 'reservation_confirmed' : 'reservation_rejected';
 
       if (reservation.guestPhone) {
         sendReservationStatusAlimtalk(
           reservation.guestPhone,
-          situation,
+          newStatus,
           {
             roomType,
             checkIn: reservation.checkIn,

@@ -55,9 +55,7 @@ export default function ReservationConversationPanel({
 }: ReservationConversationPanelProps) {
   const [history, setHistory] = useState<ChatHistory | null>(null);
   const [showAllMessages, setShowAllMessages] = useState(false);
-  const [templates, setTemplates] = useState<Array<{ templtCode: string; templtName: string; templtContent: string; status: string }>>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [loadingTemplates, setLoadingTemplates] = useState(false);
 
   const room = rooms.find((r) => r.id === reservation.roomId);
   const userId = reservation.userId ?? (reservation.guestName && /^\d+$/.test(reservation.guestName) ? reservation.guestName : null);
@@ -71,15 +69,6 @@ export default function ReservationConversationPanel({
       .catch(() => setHistory(null))
       .finally(() => setLoadingHistory(false));
   }, [userId]);
-
-  useEffect(() => {
-    setLoadingTemplates(true);
-    fetch('/api/alimtalk/templates')
-      .then((res) => (res.ok ? res.json() : []))
-      .then((list) => (Array.isArray(list) ? list : []))
-      .catch(() => [])
-      .finally(() => setLoadingTemplates(false));
-  }, []);
 
   const messages = history?.messages ?? [];
   const filteredMessages = showAllMessages
@@ -219,28 +208,6 @@ export default function ReservationConversationPanel({
           </>
         )}
       </div>
-
-      {reservation.guestPhone && (
-        <div className="p-4 border-t bg-gray-50">
-          <h4 className="text-sm font-medium text-gray-700 mb-2">알림톡 템플릿</h4>
-          {loadingTemplates ? (
-            <p className="text-xs text-gray-500">템플릿 목록 불러오는 중...</p>
-          ) : templates.length === 0 ? (
-            <p className="text-xs text-gray-500">전송 가능한 템플릿이 없거나 API 설정을 확인하세요.</p>
-          ) : (
-            <ul className="space-y-1 max-h-32 overflow-y-auto text-xs">
-              {templates
-                .filter((t) => t.status === 'A')
-                .map((t) => (
-                  <li key={t.templtCode} className="text-gray-700">
-                    <span className="font-medium">{t.templtName}</span>
-                    <span className="text-gray-500 ml-1">({t.templtCode})</span>
-                  </li>
-                ))}
-            </ul>
-          )}
-        </div>
-      )}
     </div>
   );
 }
