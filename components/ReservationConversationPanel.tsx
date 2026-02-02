@@ -160,22 +160,13 @@ export default function ReservationConversationPanel({
             </>
           )}
           {(reservation.status === 'pending' || reservation.status === 'confirmed') && (
-            <>
-              <button
-                type="button"
-                onClick={() => handleStatusChange('cancelled_by_guest')}
-                className="px-3 py-1.5 text-sm font-medium rounded-md bg-amber-600 text-white hover:bg-amber-700"
-              >
-                고객 취소
-              </button>
-              <button
-                type="button"
-                onClick={() => handleStatusChange('cancelled_by_admin')}
-                className="px-3 py-1.5 text-sm font-medium rounded-md bg-red-600 text-white hover:bg-red-700"
-              >
-                관리자 취소
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={() => handleStatusChange('cancelled_by_admin')}
+              className="px-3 py-1.5 text-sm font-medium rounded-md bg-red-600 text-white hover:bg-red-700"
+            >
+              취소
+            </button>
           )}
         </div>
       </div>

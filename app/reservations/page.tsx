@@ -141,22 +141,6 @@ export default function ReservationsPage() {
     }
   };
 
-  const handleDelete = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!confirm('정말 삭제하시겠습니까?')) return;
-    try {
-      const response = await fetch(`/api/reservations/${id}`, { method: 'DELETE' });
-      if (response.ok) {
-        fetchData();
-        if (selectedReservation?.id === id) setSelectedReservation(null);
-      } else {
-        alert('삭제에 실패했습니다.');
-      }
-    } catch {
-      alert('삭제에 실패했습니다.');
-    }
-  };
-
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleDateString('ko-KR', {
       year: 'numeric',
@@ -269,36 +253,17 @@ export default function ReservationsPage() {
                           </>
                         )}
                         {(reservation.status === 'pending' || reservation.status === 'confirmed') && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleStatusChange(reservation.id, 'cancelled_by_guest');
-                              }}
-                              className="text-sm font-medium text-amber-600 hover:text-amber-800"
-                            >
-                              고객취소
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleStatusChange(reservation.id, 'cancelled_by_admin');
-                              }}
-                              className="text-sm font-medium text-red-600 hover:text-red-800"
-                            >
-                              관리자취소
-                            </button>
-                          </>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStatusChange(reservation.id, 'cancelled_by_admin');
+                            }}
+                            className="text-sm font-medium text-red-600 hover:text-red-800"
+                          >
+                            취소
+                          </button>
                         )}
-                        <button
-                          type="button"
-                          onClick={(e) => handleDelete(reservation.id, e)}
-                          className="text-sm font-medium text-red-600 hover:text-red-800"
-                        >
-                          삭제
-                        </button>
                       </div>
                     </div>
                   </div>

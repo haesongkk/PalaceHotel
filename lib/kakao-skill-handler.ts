@@ -537,11 +537,12 @@ function handleReservationWithPhone(
   const userId = req.userRequest?.user?.id ?? '';
 
   // 예약 요청 저장 (userId로 대화 내역과 연결)
+  const guestNameDisplay = userId.length > 8 ? `${userId.slice(0, 8)}` : userId;
   const reservation = dataStore.addReservation({
     roomId: pendingReservation.roomId,
-    guestName: userId, // 표시용; 카카오 예약은 이름 대신 userId가 들어감
+    guestName: guestNameDisplay, // 표시용; userId 앞 몇 글자만
     guestPhone: phoneNumber,
-    userId,
+    userId, // 원본 그대로 저장
     checkIn: pendingReservation.checkIn,
     checkOut: pendingReservation.checkOut,
     status: 'pending',
