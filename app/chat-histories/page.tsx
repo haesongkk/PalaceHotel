@@ -2,26 +2,32 @@
 
 import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
-import { ChatHistory } from '@/types';
+import { ChatHistory, Reservation } from '@/types';
 import ChatHistoryModal from '@/components/ChatHistoryModal';
 
 export default function ChatHistoriesPage() {
   const [histories, setHistories] = useState<ChatHistory[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [selectedHistory, setSelectedHistory] = useState<ChatHistory | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchHistories();
+    fetchData();
   }, []);
 
-  const fetchHistories = async () => {
+  const fetchData = async () => {
     try {
-      const response = await fetch('/api/chat-histories');
-      const data = await response.json();
-      setHistories(data);
+      const [historiesRes, reservationsRes] = await Promise.all([
+        fetch('/api/chat-histories'),
+        fetch('/api/reservations'),
+      ]);
+      const historiesData = await historiesRes.json();
+      const reservationsData = await reservationsRes.json();
+      setHistories(historiesData);
+      setReservations(reservationsData ?? []);
     } catch (error) {
-      console.error('Failed to fetch chat histories:', error);
+      console.error('Failed to fetch data:', error);
     } finally {
       setLoading(false);
     }
@@ -42,10 +48,18 @@ export default function ChatHistoriesPage() {
     });
   };
 
-  // userId를 일부만 표시하는 헬퍼 함수
-  const formatUserId = (userId: string) => {
+  // 이름: userId 앞 8글자만 표시
+  const formatName = (userId: string) => {
     if (userId.length <= 8) return userId;
-    return userId.substring(0, 8) + '...';
+    return userId.slice(0, 8);
+  };
+
+  // userId로 예약 찾아서 전화번호 반환
+  const getPhoneByUserId = (userId: string): string => {
+    const r = reservations.find(
+      (res) => res.userId === userId || res.guestName === userId
+    );
+    return r?.guestPhone ?? '-';
   };
 
   const getLastMessage = (history: ChatHistory) => {
@@ -106,18 +120,9 @@ export default function ChatHistoriesPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center">
-                        {history.userName ? (
-                          <p className="text-sm font-medium text-gray-900">
-                            {history.userName}
-                          </p>
-                        ) : (
-                          <p className="text-sm font-medium text-gray-900">
-                            사용자 {formatUserId(history.userId)}
-                          </p>
-                        )}
-                        <span className="ml-3 text-xs text-gray-500">
-                          ({formatUserId(history.userId)})
-                        </span>
+                        <p className="text-sm font-medium text-gray-900">
+                          {formatName(history.userId)} ({getPhoneByUserId(history.userId)})
+                        </p>
                         <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                           {history.messages.length}개 메시지
                         </span>
@@ -156,6 +161,7 @@ export default function ChatHistoriesPage() {
       {isModalOpen && selectedHistory && (
         <ChatHistoryModal
           history={selectedHistory}
+          guestPhone={getPhoneByUserId(selectedHistory.userId)}
           onClose={() => {
             setIsModalOpen(false);
             setSelectedHistory(null);

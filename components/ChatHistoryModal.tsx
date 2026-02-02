@@ -5,6 +5,8 @@ import Image from 'next/image';
 
 interface ChatHistoryModalProps {
   history: ChatHistory;
+  /** 전화번호(예약에서 매칭). 없으면 '-' 표시 */
+  guestPhone?: string;
   onClose: () => void;
 }
 
@@ -289,12 +291,10 @@ function MessageContent({ message }: { message: ChatMessage }) {
   return <p className="text-sm text-gray-400">메시지 내용 없음</p>;
 }
 
-export default function ChatHistoryModal({ history, onClose }: ChatHistoryModalProps) {
-  // userId를 일부만 표시하는 헬퍼 함수
-  const formatUserId = (userId: string) => {
-    if (userId.length <= 8) return userId;
-    return userId.substring(0, 8) + '...';
-  };
+export default function ChatHistoryModal({ history, guestPhone, onClose }: ChatHistoryModalProps) {
+  const formatName = (userId: string) =>
+    userId.length <= 8 ? userId : userId.slice(0, 8) + '…';
+  const phone = guestPhone ?? '-';
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('ko-KR', {
@@ -315,15 +315,7 @@ export default function ChatHistoryModal({ history, onClose }: ChatHistoryModalP
             <div>
               <h3 className="text-lg font-medium text-gray-900">대화 내역</h3>
               <p className="text-sm text-gray-500 mt-1">
-                {history.userName ? (
-                  <>
-                    {history.userName} ({formatUserId(history.userId)})
-                  </>
-                ) : (
-                  <>
-                    사용자 {formatUserId(history.userId)} ({formatUserId(history.userId)})
-                  </>
-                )}
+                {formatName(history.userId)} ({phone})
               </p>
             </div>
             <button
