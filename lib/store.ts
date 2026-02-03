@@ -18,6 +18,7 @@ class DataStore {
     phone_input_request: '사용자가 객실을 선택한 후 전화번호를 입력하도록 요청할 때 표시되는 안내 메시지입니다.',
     reservation_request: '사용자가 예약을 요청했을 때 표시되는 확인 메시지입니다.',
     reservation_inquiry: '사용자가 예약 내역을 조회했을 때 표시되는 안내 메시지입니다.',
+    reservation_cancel: '사용자가 예약을 취소했을 때 표시되는 안내 메시지입니다.',
   };
 
   // 초기 샘플 데이터
@@ -106,6 +107,7 @@ class DataStore {
       'phone_input_request',
       'reservation_request',
       'reservation_inquiry',
+      'reservation_cancel',
     ];
 
     const defaultMessages: Record<ChatbotSituation, string> = {
@@ -117,6 +119,7 @@ class DataStore {
       phone_input_request: '예약을 완료하기 위해 전화번호를 입력해주세요.\n형식: 010-1234-5678',
       reservation_request: '예약 요청이 접수되었습니다. 확인 후 연락드리겠습니다.',
       reservation_inquiry: '예약 내역을 조회해드리겠습니다.',
+      reservation_cancel: '예약이 취소되었습니다. 다른 도움이 필요하시면 말씀해주세요.',
     };
 
     situations.forEach((situation) => {

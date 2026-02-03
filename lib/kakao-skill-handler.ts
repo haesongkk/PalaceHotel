@@ -169,12 +169,18 @@ function createRoomCarousel(checkIn: Date, checkOut: Date): KakaoOutputComponent
 
 function createHistoryItem(reservation: Reservation): KakaoListItem {
   const room = dataStore.getRoom(reservation.roomId);
+  const title = `${room?.type ?? ''} ${new Date(
+    reservation.checkIn,
+  ).toLocaleDateString()} 입실 ~ ${new Date(
+    reservation.checkOut,
+  ).toLocaleDateString()} 퇴실`;
+
   return {
-    title: `${room?.type ?? ''} ${new Date(reservation.checkIn).toLocaleDateString()} 입실 ~ ${new Date(reservation.checkOut).toLocaleDateString()} 퇴실`,
-    description: reservation.status,
+    title,
+    description: getReservationStatusLabel(reservation.status),
     imageUrl: room ? shortenImageUrl(room.imageUrl, room.id) : undefined,
-    action: "message",
-    messageText: `예약내역 조회: ${reservation.roomId}`,
+    action: 'message',
+    messageText: `${title} 조회하기`,
     extra: {
       reservationId: reservation.id,
     },
@@ -182,12 +188,20 @@ function createHistoryItem(reservation: Reservation): KakaoListItem {
 }
 
 function createHistoryList(userId: string): KakaoOutputComponent {
+  const reservations = dataStore
+    .getReservations()
+    .filter((reservation) => reservation.userId && reservation.userId === userId);
+
+  if (reservations.length === 0) {
+    return simpleText('예약 내역이 없습니다.');
+  }
+
   return {
     listCard: {
       header: {
         title: '예약내역',
       },
-      items: dataStore.getReservations().map((reservation) => createHistoryItem(reservation)),
+      items: reservations.map((reservation) => createHistoryItem(reservation)),
     },
   };
 }
@@ -325,6 +339,160 @@ function getDayOfWeek(date: Date): DayOfWeek {
 }
 
 /* ---------------------------
+ * 예약내역 전용 유틸/핸들러
+ * --------------------------- */
+
+function getReservationStatusLabel(status: ReservationStatus): string {
+  switch (status) {
+    case 'pending':
+      return '대기';
+    case 'confirmed':
+      return '확정';
+    case 'rejected':
+      return '거절';
+    case 'cancelled_by_guest':
+      return '고객 취소';
+    case 'cancelled_by_admin':
+      return '관리자 취소';
+    default:
+      return status;
+  }
+}
+
+function createReservationDetailCard(reservation: Reservation): KakaoOutputComponent {
+  const room = dataStore.getRoom(reservation.roomId);
+  const canCancel = reservation.status === 'pending' || reservation.status === 'confirmed';
+
+  const formatDate = (iso: string): string =>
+    new Date(iso).toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+
+  const lines: string[] = [];
+  lines.push(`예약번호: ${reservation.id}`);
+  if (room) {
+    lines.push(`객실: ${room.type}`);
+  }
+  lines.push(
+    `체크인: ${formatDate(reservation.checkIn)}`,
+    `체크아웃: ${formatDate(reservation.checkOut)}`,
+  );
+  lines.push(`상태: ${getReservationStatusLabel(reservation.status)}`);
+  lines.push(`결제금액: ${reservation.totalPrice.toLocaleString('ko-KR')}원`);
+
+  const buttons: KakaoButton[] = [];
+  if (canCancel) {
+    buttons.push({
+      label: '예약 취소',
+      action: 'message',
+      messageText: '예약 취소',
+      extra: {
+        reservationId: reservation.id,
+        action: 'cancel',
+      },
+    });
+  }
+
+  return {
+    basicCard: {
+      title: room ? `${room.type} 예약 상세` : '예약 상세',
+      description: lines.join('\n'),
+      thumbnail: {
+        imageUrl: room ? shortenImageUrl(room.imageUrl, room.id) : 'https://picsum.photos/800/600',
+        altText: room?.type ?? '객실',
+      },
+      buttons,
+      buttonLayout: 'vertical',
+    },
+  };
+}
+
+export function handleReservationHistorySkill(req: KakaoSkillRequest): KakaoSkillResponse {
+  const utterance = (req.userRequest?.utterance ?? '').trim();
+  const extra = req.action?.clientExtra ?? {};
+  const userId = req.userRequest?.user?.id ?? '';
+
+  const baseMessage =
+    dataStore.getChatbotMessage('reservation_inquiry')?.message ??
+    '예약 내역을 조회해드리겠습니다.';
+
+  const reservationId =
+    typeof (extra as Record<string, unknown>).reservationId === 'string'
+      ? ((extra as Record<string, unknown>).reservationId as string)
+      : undefined;
+  const action =
+    typeof (extra as Record<string, unknown>).action === 'string'
+      ? ((extra as Record<string, unknown>).action as string)
+      : undefined;
+
+  // 예약 취소 처리
+  if (reservationId && action === 'cancel') {
+    const existing = dataStore.getReservation(reservationId);
+    if (!existing) {
+      return {
+        version: '2.0',
+        template: {
+          outputs: [simpleText('해당 예약을 찾을 수 없습니다.')],
+        },
+      };
+    }
+
+    if (existing.status === 'cancelled_by_guest' || existing.status === 'cancelled_by_admin') {
+      return {
+        version: '2.0',
+        template: {
+          outputs: [simpleText('이미 취소된 예약입니다.')],
+        },
+      };
+    }
+
+    const updated =
+      dataStore.updateReservation(reservationId, { status: 'cancelled_by_guest' }) ?? existing;
+
+    const cancelMessage =
+      dataStore.getChatbotMessage('reservation_cancel')?.message ??
+      '예약이 취소되었습니다.';
+
+    return {
+      version: '2.0',
+      template: {
+        outputs: [simpleText(cancelMessage)],
+      },
+    };
+  }
+
+  // 특정 예약 상세 조회
+  if (reservationId) {
+    const reservation = dataStore.getReservation(reservationId);
+    if (!reservation) {
+      return {
+        version: '2.0',
+        template: {
+          outputs: [simpleText('해당 예약을 찾을 수 없습니다.'), simpleText(baseMessage)],
+        },
+      };
+    }
+
+    return {
+      version: '2.0',
+      template: {
+        outputs: [simpleText(baseMessage), createReservationDetailCard(reservation)],
+      },
+    };
+  }
+
+  // 기본: 예약 목록
+  return {
+    version: '2.0',
+    template: {
+      outputs: [simpleText(baseMessage), createHistoryList(userId)],
+    },
+  };
+}
+
+/* ---------------------------
  * 메인 핸들러
  * --------------------------- */
 
@@ -386,15 +554,8 @@ export function handleKakaoSkillRequest(req: KakaoSkillRequest): KakaoSkillRespo
       },
     };
   case '예약내역':
-    return {
-      version: '2.0',
-      template: {
-        outputs: [
-          simpleText(message),
-          createHistoryList(req.userRequest?.user?.id ?? ''),
-        ],
-      },
-    };
+    // 예약내역 관련 요청은 전용 핸들러로 위임
+    return handleReservationHistorySkill(req);
   default:
     // 전화번호 입력 처리 (임시 예약 정보가 있는 경우)
     const userId = req.userRequest?.user?.id ?? '';
@@ -458,13 +619,9 @@ export function handleKakaoSkillRequest(req: KakaoSkillRequest): KakaoSkillRespo
           },
         };
       }
-    } else if (extra.reservationId) {
-      return {
-        version: '2.0',
-        template: {
-          outputs: [simpleText(`${extra.reservationId} 예약내역 눌렀음`)],
-        },
-      };
+    } else if ((extra as Record<string, unknown>).reservationId) {
+      // 예약내역 리스트에서 특정 예약을 클릭한 경우
+      return handleReservationHistorySkill(req);
     } else if (params.checkin && params.checkout) {
       return {
         version: '2.0',

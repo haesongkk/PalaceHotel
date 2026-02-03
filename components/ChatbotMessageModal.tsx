@@ -17,6 +17,7 @@ const situationLabels: Record<ChatbotSituation, string> = {
   phone_input_request: '전화번호 입력 요청시',
   reservation_request: '예약 요청시',
   reservation_inquiry: '예약내역 조회시',
+  reservation_cancel: '예약 취소시',
 };
 
 export default function ChatbotMessageModal({ message, onClose }: ChatbotMessageModalProps) {
