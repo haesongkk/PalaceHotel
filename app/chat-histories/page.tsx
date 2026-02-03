@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
-import { ChatHistory, Reservation } from '@/types';
-import ChatHistoryModal from '@/components/ChatHistoryModal';
+import { ChatHistory, Reservation, Room } from '@/types';
+import ConversationPanel from '@/components/ConversationPanel';
 
 export default function ChatHistoriesPage() {
   const [histories, setHistories] = useState<ChatHistory[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [selectedHistory, setSelectedHistory] = useState<ChatHistory | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -18,14 +18,17 @@ export default function ChatHistoriesPage() {
 
   const fetchData = async (): Promise<ChatHistory[] | null> => {
     try {
-      const [historiesRes, reservationsRes] = await Promise.all([
+      const [historiesRes, reservationsRes, roomsRes] = await Promise.all([
         fetch('/api/chat-histories'),
         fetch('/api/reservations'),
+        fetch('/api/rooms'),
       ]);
       const historiesData = await historiesRes.json();
       const reservationsData = await reservationsRes.json();
+      const roomsData = await roomsRes.json();
       setHistories(historiesData);
       setReservations(reservationsData ?? []);
+      setRooms(roomsData ?? []);
       return historiesData;
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -37,7 +40,6 @@ export default function ChatHistoriesPage() {
 
   const handleView = (history: ChatHistory) => {
     setSelectedHistory(history);
-    setIsModalOpen(true);
   };
 
   const formatDate = (dateString: string) => {
@@ -153,25 +155,33 @@ export default function ChatHistoriesPage() {
         </div>
       </div>
 
-      {isModalOpen && selectedHistory && (
-        <ChatHistoryModal
-          history={selectedHistory}
-          onClose={() => {
-            setIsModalOpen(false);
-            setSelectedHistory(null);
-          }}
-          onSaved={async (updated) => {
-            setSelectedHistory(updated);
-            await fetchData();
-          }}
-          onSent={async () => {
-            const nextList = await fetchData();
-            if (nextList && selectedHistory) {
-              const next = nextList.find((h) => h.id === selectedHistory.id);
-              if (next) setSelectedHistory(next);
-            }
-          }}
-        />
+      {selectedHistory && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/30 z-30"
+            onClick={() => setSelectedHistory(null)}
+            onKeyDown={(e) => e.key === 'Escape' && setSelectedHistory(null)}
+            role="button"
+            tabIndex={0}
+            aria-label="패널 닫기"
+          />
+          <ConversationPanel
+            source={{ mode: 'chat-history', history: selectedHistory }}
+            rooms={rooms}
+            onClose={() => setSelectedHistory(null)}
+            onSaved={async (updated) => {
+              setSelectedHistory(updated);
+              await fetchData();
+            }}
+            onSent={async () => {
+              const nextList = await fetchData();
+              if (nextList && selectedHistory) {
+                const next = nextList.find((h) => h.id === selectedHistory.id);
+                if (next) setSelectedHistory(next);
+              }
+            }}
+          />
+        </>
       )}
     </Layout>
   );

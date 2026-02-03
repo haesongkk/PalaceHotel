@@ -1,6 +1,7 @@
 'use client';
 
 import { Reservation, ReservationStatus, Room } from '@/types';
+import AppModal from '@/components/AppModal';
 
 interface ReservationModalProps {
   reservation: Reservation;
@@ -30,22 +31,20 @@ export default function ReservationModal({ reservation, rooms, onClose }: Reserv
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
-        <div className="mt-3">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium text-gray-900">예약 상세 정보</h3>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          <div className="space-y-4">
+    <AppModal
+      title="예약 상세 정보"
+      onClose={onClose}
+      footer={
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+        >
+          닫기
+        </button>
+      }
+    >
+      <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">예약 상태</label>
@@ -93,30 +92,12 @@ export default function ReservationModal({ reservation, rooms, onClose }: Reserv
               </p>
             </div>
 
-            {reservation.notes && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700">메모</label>
-                <p className="mt-1 text-sm text-gray-900">{reservation.notes}</p>
-              </div>
-            )}
-
             <div>
               <label className="block text-sm font-medium text-gray-700">예약 일시</label>
               <p className="mt-1 text-sm text-gray-900">{formatDate(reservation.createdAt)}</p>
             </div>
-          </div>
-
-          <div className="mt-6 flex justify-end">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-            >
-              닫기
-            </button>
-          </div>
-        </div>
       </div>
-    </div>
+    </AppModal>
   );
 }
 

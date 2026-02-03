@@ -39,7 +39,6 @@ export interface Reservation {
   checkOut: string; // ISO date string
   status: ReservationStatus;
   totalPrice: number;
-  notes?: string;
   createdAt: string; // ISO date string
 }
 

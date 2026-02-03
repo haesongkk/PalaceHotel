@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ChatHistory, ChatMessage } from '@/types';
+import AppModal from '@/components/AppModal';
 import ChatSendPanel from '@/components/ChatSendPanel';
 
 interface ChatHistoryModalProps {
@@ -374,27 +375,22 @@ export default function ChatHistoryModal({ history: initialHistory, onClose, onS
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-10 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
-        <div className="mt-3">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h3 className="text-lg font-medium text-gray-900">대화 내역</h3>
-              <p className="text-sm text-gray-500 mt-1">
-                {displayName} ({phone})
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+    <AppModal
+      title="대화 내역"
+      subtitle={`${displayName} (${phone})`}
+      onClose={onClose}
+      scrollable
+      footer={
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+        >
+          닫기
+        </button>
+      }
+    >
+      <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-medium text-gray-700">유저 정보 (관리자 수정)</h4>
               {!editing ? (
@@ -511,27 +507,16 @@ export default function ChatHistoryModal({ history: initialHistory, onClose, onS
             )}
           </div>
 
-          <div className="mt-6 border-t border-gray-200 pt-4">
-            <ChatSendPanel
-              userId={history.userId}
-              phone={phoneForAlimtalk}
-              reservationContext={undefined}
-              onChatSent={handleSent}
-              onAlimtalkSent={handleSent}
-            />
-          </div>
-
-          <div className="mt-6 flex justify-end">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-            >
-              닫기
-            </button>
-          </div>
-        </div>
+      <div className="mt-6 border-t border-gray-200 pt-4">
+        <ChatSendPanel
+          userId={history.userId}
+          phone={phoneForAlimtalk}
+          reservationContext={undefined}
+          onChatSent={handleSent}
+          onAlimtalkSent={handleSent}
+        />
       </div>
-    </div>
+    </AppModal>
   );
 }
 

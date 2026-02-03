@@ -717,7 +717,6 @@ function handleReservationWithPhone(
     checkOut: pendingReservation.checkOut,
     status: 'pending',
     totalPrice: pendingReservation.totalPrice,
-    notes: '',
   });
 
   // 임시 예약 정보 삭제
