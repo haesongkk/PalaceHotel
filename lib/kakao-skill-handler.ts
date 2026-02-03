@@ -654,7 +654,8 @@ export function handleKakaoSkillRequest(req: KakaoSkillRequest): KakaoSkillRespo
 }
 
 /**
- * 객실 선택 시 임시 예약 정보 저장 및 전화번호 입력 요청
+ * 객실 선택 시 임시 예약 정보 저장.
+ * 이미 저장된 전화번호(userPhone)가 있으면 전화번호 입력 없이 바로 예약 완료, 없으면 전화번호 입력 요청.
  */
 function handleRoomSelection(req: KakaoSkillRequest): KakaoSkillResponse {
   const extra = req.action?.clientExtra ?? {};
@@ -667,6 +668,16 @@ function handleRoomSelection(req: KakaoSkillRequest): KakaoSkillResponse {
     checkOut: new Date(extra.checkOut as string).toISOString(),
     totalPrice: extra.totalPrice as number,
   });
+
+  // 유저별 저장 전화번호가 있으면 전화번호 입력 단계 스킵 후 바로 예약 완료
+  const history = dataStore.getOrCreateChatHistory(userId);
+  const storedPhone = history.userPhone?.trim();
+  if (storedPhone && isValidPhoneNumber(storedPhone)) {
+    const pending = dataStore.getPendingReservation(userId);
+    if (pending) {
+      return handleReservationWithPhone(req, pending, normalizePhoneNumber(storedPhone));
+    }
+  }
 
   // 전화번호 입력 요청 메시지
   const message = dataStore.getChatbotMessage('phone_input_request')?.message ?? 
@@ -692,12 +703,14 @@ function handleReservationWithPhone(
   phoneNumber: string
 ): KakaoSkillResponse {
   const userId = req.userRequest?.user?.id ?? '';
+  const history = dataStore.getChatHistoryByUserId(userId);
 
-  // 예약 요청 저장 (userId로 대화 내역과 연결)
-  const guestNameDisplay = userId.length > 8 ? `${userId.slice(0, 8)}` : userId;
+  // 예약 요청 저장 (userId로 대화 내역과 연결). 저장된 이름이 있으면 사용
+  const guestNameDisplay =
+    (history?.userName?.trim()) || (userId.length > 8 ? userId.slice(0, 8) : userId);
   const reservation = dataStore.addReservation({
     roomId: pendingReservation.roomId,
-    guestName: guestNameDisplay, // 표시용; userId 앞 몇 글자만
+    guestName: guestNameDisplay,
     guestPhone: phoneNumber,
     userId, // 원본 그대로 저장
     checkIn: pendingReservation.checkIn,
@@ -709,6 +722,11 @@ function handleReservationWithPhone(
 
   // 임시 예약 정보 삭제
   dataStore.deletePendingReservation(userId);
+
+  // 유저별 전화번호 저장 (다음 예약부터 전화번호 입력 생략)
+  if (history) {
+    dataStore.updateChatHistory(history.id, { userPhone: phoneNumber });
+  }
 
   // 관리자에게 알림톡 발송 (비동기, 에러는 조용히 처리)
   sendReservationNotificationAlimtalk(reservation.id).catch((error) => {

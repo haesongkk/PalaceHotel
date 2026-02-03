@@ -76,6 +76,10 @@ export interface ChatHistory {
   id: string;
   userId: string; // 카카오톡 사용자 ID
   userName?: string;
+  /** 유저별 저장 전화번호 (최초 1회 입력 후 재사용, 관리자에서 수정 가능) */
+  userPhone?: string;
+  /** 관리자 메모 */
+  memo?: string;
   messages: ChatMessage[];
   createdAt: string;
   updatedAt: string;

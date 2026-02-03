@@ -247,26 +247,36 @@ class DataStore {
     return newHistory;
   }
 
-  // 사용자별 대화 내역 찾기 또는 생성
+  // 표시용 기본 이름: userId 앞 8자 (또는 전체)
+  private defaultUserName(userId: string): string {
+    return userId.length > 8 ? userId.slice(0, 8) : userId;
+  }
+
+  // 사용자별 대화 내역 찾기 또는 생성 (생성 시 슬라이스한 userId를 userName으로 저장)
   getOrCreateChatHistory(userId: string, userName?: string): ChatHistory {
     let history = this.chatHistories.find(h => h.userId === userId);
-    
+    const defaultName = this.defaultUserName(userId);
+
     if (!history) {
       const now = new Date().toISOString();
       history = {
         id: Date.now().toString(),
         userId,
-        userName,
+        userName: userName?.trim() || defaultName,
         messages: [],
         createdAt: now,
         updatedAt: now,
       };
       this.chatHistories.push(history);
-    } else if (userName && history.userName !== userName) {
-      // 사용자 이름 업데이트
-      history.userName = userName;
+    } else {
+      if (userName?.trim() && history.userName !== userName.trim()) {
+        history.userName = userName.trim();
+      } else if (!history.userName?.trim()) {
+        // 기존 내역에 이름이 없으면 슬라이스한 값을 저장
+        history.userName = defaultName;
+      }
     }
-    
+
     return history;
   }
 

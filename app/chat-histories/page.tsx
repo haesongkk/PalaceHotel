@@ -56,10 +56,11 @@ export default function ChatHistoriesPage() {
     return userId.slice(0, 8);
   };
 
-  // userId로 예약 찾아서 전화번호 반환
-  const getPhoneByUserId = (userId: string): string => {
+  // 유저 전화번호: 대화 내역 저장값 우선, 없으면 예약에서 매칭
+  const getDisplayPhone = (history: ChatHistory): string => {
+    if (history.userPhone?.trim()) return history.userPhone.trim();
     const r = reservations.find(
-      (res) => res.userId === userId || res.guestName === userId
+      (res) => res.userId === history.userId || res.guestName === history.userId
     );
     return r?.guestPhone ?? '-';
   };
@@ -118,37 +119,29 @@ export default function ChatHistoriesPage() {
           <ul className="divide-y divide-gray-200">
             {histories.map((history) => (
               <li key={history.id}>
-                <div className="px-4 py-4 sm:px-6 hover:bg-gray-50">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center">
-                        <p className="text-sm font-medium text-gray-900">
-                          {formatName(history.userId)} ({getPhoneByUserId(history.userId)})
-                        </p>
-                        <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                          {history.messages.length}개 메시지
-                        </span>
-                      </div>
-                      <div className="mt-2">
-                        <p className="text-sm text-gray-600">{getLastMessage(history)}</p>
-                      </div>
-                      <div className="mt-2 text-xs text-gray-500">
-                        시작: {formatDate(history.createdAt)}
-                        {history.updatedAt !== history.createdAt && (
-                          <> • 마지막: {formatDate(history.updatedAt)}</>
-                        )}
-                      </div>
-                    </div>
-                    <div className="ml-4">
-                      <button
-                        onClick={() => handleView(history)}
-                        className="text-blue-600 hover:text-blue-900 text-sm font-medium"
-                      >
-                        상세 보기
-                      </button>
-                    </div>
+                <button
+                  type="button"
+                  onClick={() => handleView(history)}
+                  className="w-full text-left px-4 py-4 sm:px-6 hover:bg-gray-50 cursor-pointer"
+                >
+                  <div className="flex items-center">
+                    <p className="text-sm font-medium text-gray-900">
+                      {history.userName?.trim() || formatName(history.userId)} ({getDisplayPhone(history)})
+                    </p>
+                    <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                      {history.messages.length}개 메시지
+                    </span>
                   </div>
-                </div>
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-600">{getLastMessage(history)}</p>
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500">
+                    시작: {formatDate(history.createdAt)}
+                    {history.updatedAt !== history.createdAt && (
+                      <> • 마지막: {formatDate(history.updatedAt)}</>
+                    )}
+                  </div>
+                </button>
               </li>
             ))}
           </ul>
@@ -163,10 +156,13 @@ export default function ChatHistoriesPage() {
       {isModalOpen && selectedHistory && (
         <ChatHistoryModal
           history={selectedHistory}
-          guestPhone={getPhoneByUserId(selectedHistory.userId)}
           onClose={() => {
             setIsModalOpen(false);
             setSelectedHistory(null);
+          }}
+          onSaved={async (updated) => {
+            setSelectedHistory(updated);
+            await fetchData();
           }}
           onSent={async () => {
             const nextList = await fetchData();

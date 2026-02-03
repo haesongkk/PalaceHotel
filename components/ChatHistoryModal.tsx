@@ -1,13 +1,14 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { ChatHistory, ChatMessage } from '@/types';
 import ChatSendPanel from '@/components/ChatSendPanel';
 
 interface ChatHistoryModalProps {
   history: ChatHistory;
-  /** 전화번호(예약에서 매칭). 없으면 '-' 표시. 없거나 '-'면 알림톡 빠른 입력 숨김 */
-  guestPhone?: string;
   onClose: () => void;
+  /** 유저 이름/전화번호/메모 저장 후 호출 (갱신된 history 전달) */
+  onSaved?: (updated: ChatHistory) => void | Promise<void>;
   /** 채팅/알림톡 전송 후 대화 내역 갱신 시 호출 */
   onSent?: () => void;
 }
@@ -293,11 +294,28 @@ function MessageContent({ message }: { message: ChatMessage }) {
   return <p className="text-sm text-gray-400">메시지 내용 없음</p>;
 }
 
-export default function ChatHistoryModal({ history, guestPhone, onClose, onSent }: ChatHistoryModalProps) {
+export default function ChatHistoryModal({ history: initialHistory, onClose, onSaved, onSent }: ChatHistoryModalProps) {
+  const [history, setHistory] = useState(initialHistory);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(initialHistory.userName ?? '');
+  const [editPhone, setEditPhone] = useState(initialHistory.userPhone ?? '');
+  const [editMemo, setEditMemo] = useState(initialHistory.memo ?? '');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setHistory(initialHistory);
+    if (!editing) {
+      setEditName(initialHistory.userName ?? '');
+      setEditPhone(initialHistory.userPhone ?? '');
+      setEditMemo(initialHistory.memo ?? '');
+    }
+  }, [initialHistory, editing]);
+
   const formatName = (userId: string) =>
     userId.length <= 8 ? userId : userId.slice(0, 8) + '…';
-  const phone = guestPhone ?? '-';
-  const phoneForAlimtalk = phone === '-' || !phone ? null : phone;
+  const displayName = history.userName?.trim() || formatName(history.userId);
+  const phone = history.userPhone?.trim() || '-';
+  const phoneForAlimtalk = phone === '-' ? null : phone;
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('ko-KR', {
@@ -310,6 +328,51 @@ export default function ChatHistoryModal({ history, guestPhone, onClose, onSent 
     });
   };
 
+  const handleSaveProfile = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/chat-histories/${history.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userName: editName.trim() || undefined,
+          userPhone: editPhone.trim() || undefined,
+          memo: editMemo.trim() || undefined,
+        }),
+      });
+      if (!res.ok) throw new Error('저장 실패');
+      const updated = await res.json();
+      setHistory(updated);
+      setEditing(false);
+      await onSaved?.(updated);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditName(history.userName ?? '');
+    setEditPhone(history.userPhone ?? '');
+    setEditMemo(history.memo ?? '');
+    setEditing(false);
+  };
+
+  /** 채팅/알림톡 전송 후 대화 내역 새로고침 */
+  const handleSent = async () => {
+    onSent?.();
+    try {
+      const res = await fetch(`/api/chat-histories?userId=${encodeURIComponent(history.userId)}`);
+      if (res.ok) {
+        const updated = await res.json();
+        setHistory(updated);
+      }
+    } catch {
+      // 무시
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
       <div className="relative top-10 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white max-h-[90vh] overflow-y-auto">
@@ -318,7 +381,7 @@ export default function ChatHistoryModal({ history, guestPhone, onClose, onSent 
             <div>
               <h3 className="text-lg font-medium text-gray-900">대화 내역</h3>
               <p className="text-sm text-gray-500 mt-1">
-                {formatName(history.userId)} ({phone})
+                {displayName} ({phone})
               </p>
             </div>
             <button
@@ -329,6 +392,90 @@ export default function ChatHistoryModal({ history, guestPhone, onClose, onSent 
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
+          </div>
+
+          <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-medium text-gray-700">유저 정보 (관리자 수정)</h4>
+              {!editing ? (
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  수정
+                </button>
+              ) : null}
+            </div>
+            {editing ? (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">이름</label>
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      placeholder="표시 이름"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">전화번호</label>
+                    <input
+                      type="text"
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      placeholder="010-1234-5678"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs text-gray-500 mb-1">메모</label>
+                    <textarea
+                      value={editMemo}
+                      onChange={(e) => setEditMemo(e.target.value)}
+                      placeholder="관리자 메모"
+                      rows={2}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveProfile}
+                    disabled={saving}
+                    className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {saving ? '저장 중…' : '저장'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    disabled={saving}
+                    className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-md hover:bg-gray-300 disabled:opacity-50"
+                  >
+                    취소
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2 text-sm">
+                <div>
+                  <span className="text-gray-500">이름</span>
+                  <p className="text-gray-900">{history.userName?.trim() || '-'}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500">전화번호</span>
+                  <p className="text-gray-900">{phone === '-' ? '-' : phone}</p>
+                </div>
+                <div className="sm:col-span-2">
+                  <span className="text-gray-500">메모</span>
+                  <p className="text-gray-900 whitespace-pre-wrap">{history.memo?.trim() || '-'}</p>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="space-y-4">
@@ -369,8 +516,8 @@ export default function ChatHistoryModal({ history, guestPhone, onClose, onSent 
               userId={history.userId}
               phone={phoneForAlimtalk}
               reservationContext={undefined}
-              onChatSent={onSent}
-              onAlimtalkSent={onSent}
+              onChatSent={handleSent}
+              onAlimtalkSent={handleSent}
             />
           </div>
 
