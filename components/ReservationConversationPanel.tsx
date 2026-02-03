@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Reservation, ChatHistory, ChatMessage, Room } from '@/types';
+import ChatSendPanel from '@/components/ChatSendPanel';
 
 const RESERVATION_WINDOW_MINUTES = 30;
 
@@ -208,6 +209,26 @@ export default function ReservationConversationPanel({
           </>
         )}
       </div>
+
+      <ChatSendPanel
+        userId={userId}
+        phone={reservation.guestPhone}
+        reservationContext={{
+          roomType: room?.type ?? '객실',
+          checkIn: reservation.checkIn,
+          checkOut: reservation.checkOut,
+          totalPrice: reservation.totalPrice,
+          reservationId: reservation.id,
+        }}
+        onChatSent={() => {
+          if (userId) {
+            fetch(`/api/chat-histories?userId=${encodeURIComponent(userId)}`)
+              .then((r) => (r.ok ? r.json() : null))
+              .then((data) => { if (data != null) setHistory(data); });
+          }
+        }}
+        onAlimtalkSent={() => {}}
+      />
     </div>
   );
 }

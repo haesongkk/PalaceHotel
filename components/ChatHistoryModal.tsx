@@ -1,13 +1,15 @@
 'use client';
 
 import { ChatHistory, ChatMessage } from '@/types';
-import Image from 'next/image';
+import ChatSendPanel from '@/components/ChatSendPanel';
 
 interface ChatHistoryModalProps {
   history: ChatHistory;
-  /** 전화번호(예약에서 매칭). 없으면 '-' 표시 */
+  /** 전화번호(예약에서 매칭). 없으면 '-' 표시. 없거나 '-'면 알림톡 빠른 입력 숨김 */
   guestPhone?: string;
   onClose: () => void;
+  /** 채팅/알림톡 전송 후 대화 내역 갱신 시 호출 */
+  onSent?: () => void;
 }
 
 // 카카오톡 메시지 컴포넌트들
@@ -291,10 +293,11 @@ function MessageContent({ message }: { message: ChatMessage }) {
   return <p className="text-sm text-gray-400">메시지 내용 없음</p>;
 }
 
-export default function ChatHistoryModal({ history, guestPhone, onClose }: ChatHistoryModalProps) {
+export default function ChatHistoryModal({ history, guestPhone, onClose, onSent }: ChatHistoryModalProps) {
   const formatName = (userId: string) =>
     userId.length <= 8 ? userId : userId.slice(0, 8) + '…';
   const phone = guestPhone ?? '-';
+  const phoneForAlimtalk = phone === '-' || !phone ? null : phone;
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('ko-KR', {
@@ -359,6 +362,16 @@ export default function ChatHistoryModal({ history, guestPhone, onClose }: ChatH
             {history.updatedAt !== history.createdAt && (
               <p>마지막 메시지: {formatDate(history.updatedAt)}</p>
             )}
+          </div>
+
+          <div className="mt-6 border-t border-gray-200 pt-4">
+            <ChatSendPanel
+              userId={history.userId}
+              phone={phoneForAlimtalk}
+              reservationContext={undefined}
+              onChatSent={onSent}
+              onAlimtalkSent={onSent}
+            />
           </div>
 
           <div className="mt-6 flex justify-end">

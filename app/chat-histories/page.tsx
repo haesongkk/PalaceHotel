@@ -16,7 +16,7 @@ export default function ChatHistoriesPage() {
     fetchData();
   }, []);
 
-  const fetchData = async () => {
+  const fetchData = async (): Promise<ChatHistory[] | null> => {
     try {
       const [historiesRes, reservationsRes] = await Promise.all([
         fetch('/api/chat-histories'),
@@ -26,8 +26,10 @@ export default function ChatHistoriesPage() {
       const reservationsData = await reservationsRes.json();
       setHistories(historiesData);
       setReservations(reservationsData ?? []);
+      return historiesData;
     } catch (error) {
       console.error('Failed to fetch data:', error);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -165,6 +167,13 @@ export default function ChatHistoriesPage() {
           onClose={() => {
             setIsModalOpen(false);
             setSelectedHistory(null);
+          }}
+          onSent={async () => {
+            const nextList = await fetchData();
+            if (nextList && selectedHistory) {
+              const next = nextList.find((h) => h.id === selectedHistory.id);
+              if (next) setSelectedHistory(next);
+            }
           }}
         />
       )}

@@ -351,3 +351,17 @@ if (typeof globalThis.__dataStore === 'undefined') {
 }
 
 export const dataStore = globalThis.__dataStore;
+
+// 관리자 채팅 입력: 모듈 레벨 Map 사용 (Next.js 번들/캐시 이슈 회피)
+const pendingAdminMessagesMap = new Map<string, string>();
+
+export function setPendingAdminMessage(userId: string, text: string): void {
+  pendingAdminMessagesMap.set(String(userId), text);
+}
+
+export function getAndClearPendingAdminMessage(userId: string): string | null {
+  const key = String(userId);
+  const text = pendingAdminMessagesMap.get(key) ?? null;
+  pendingAdminMessagesMap.delete(key);
+  return text;
+}

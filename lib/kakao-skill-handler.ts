@@ -329,7 +329,7 @@ function getDayOfWeek(date: Date): DayOfWeek {
  * --------------------------- */
 
 export function handleKakaoSkillRequest(req: KakaoSkillRequest): KakaoSkillResponse {
-  const utterance = req.userRequest?.utterance ?? '';
+  const utterance = (req.userRequest?.utterance ?? '').trim();
   const params = req.action?.params ?? {};
   const extra = req.action?.clientExtra ?? {};
 

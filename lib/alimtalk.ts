@@ -109,6 +109,15 @@ export async function getTemplateContent(tplCode: string): Promise<string | null
   return t?.templtContent ?? null;
 }
 
+/** templtContent에서 #{변수명} 목록 추출 (중복 제거, 순서 유지) */
+export function extractTemplateVariables(content: string): string[] {
+  const re = /#\{([^}]+)\}/g;
+  const set = new Set<string>();
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(content)) !== null) set.add(m[1].trim());
+  return Array.from(set);
+}
+
 /**
  * 신규 템플릿 생성 (등록 후 검수 요청 필요)
  */

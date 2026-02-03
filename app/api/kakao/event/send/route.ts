@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendKakaoEvent } from '@/lib/kakao-event';
+import { setPendingAdminMessage } from '@/lib/store';
 
 /**
- * POST: 카카오 이벤트 API 발송 (테스트용)
- * body: { userId?: string, userIds?: string[], eventName?: string }
+ * POST: 카카오 이벤트 API 발송
+ * body:
  * - userId 또는 userIds (배열) 중 하나 필수
- * - eventName 없으면 .env KAKAO_EVENT_NAME 사용
+ * - 채팅 입력(관리자 메시지): text 또는 message 있으면 admin_message 이벤트로 발송
+ *   → eventName: .env KAKAO_ADMIN_MESSAGE_EVENT (기본값 admin_message), eventData: { text }
+ * - 그 외: eventName 없으면 .env KAKAO_EVENT_NAME 사용 (테스트용)
  */
 export async function POST(request: NextRequest) {
   try {
     const botId = process.env.KAKAO_BOT_ID;
     const restApiKey = process.env.KAKAO_REST_API_KEY;
     const defaultEventName = process.env.KAKAO_EVENT_NAME;
+    const adminMessageEventName = process.env.KAKAO_ADMIN_MESSAGE_EVENT || 'admin_message';
 
     if (!botId || !restApiKey) {
       return NextResponse.json(
@@ -23,11 +27,17 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const userId = body.userId as string | undefined;
     const userIds = body.userIds as string[] | undefined;
-    const eventName = (body.eventName as string) || defaultEventName;
+    const text = (body.text as string) ?? (body.message as string);
+    const isAdminMessage = typeof text === 'string' && text.trim().length > 0;
+
+    const eventName = isAdminMessage
+      ? adminMessageEventName
+      : ((body.eventName as string) || defaultEventName);
+    const eventData = isAdminMessage ? { text: text.trim() } : undefined;
 
     if (!eventName) {
       return NextResponse.json(
-        { error: 'eventName이 없습니다. 요청 body에 eventName을 넣거나 .env에 KAKAO_EVENT_NAME을 설정하세요.' },
+        { error: 'eventName이 없습니다. 채팅 입력 시 text를 넣거나, .env에 KAKAO_EVENT_NAME을 설정하세요.' },
         { status: 400 }
       );
     }
@@ -40,16 +50,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 블록이 파라미터 안 넘겨도 스킬에서 꺼내 쓸 수 있도록 미리 저장 (userId 문자열로 통일)
+    if (isAdminMessage) {
+      const msg = text.trim();
+      for (const id of ids) setPendingAdminMessage(String(id), msg);
+    }
+
     const result = await sendKakaoEvent({
       botId,
       restApiKey,
       eventName,
       userIds: ids,
+      eventData,
     });
 
     return NextResponse.json(result);
   } catch (error) {
+    console.error('[event/send]', error);
     const message = error instanceof Error ? error.message : '이벤트 발송 실패';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: message, stack: error instanceof Error ? error.stack : undefined },
+      { status: 500 }
+    );
   }
 }
