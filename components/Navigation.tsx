@@ -9,8 +9,6 @@ const navItems = [
   { href: '/reservations', label: '예약 관리' },
   { href: '/chatbot-messages', label: '챗봇 멘트' },
   { href: '/chat-histories', label: '대화 내역' },
-  { href: '/kakao-event-test', label: '이벤트 API 테스트' },
-  { href: '/notifications', label: '알림 목록' },
 ];
 
 export default function Navigation() {
