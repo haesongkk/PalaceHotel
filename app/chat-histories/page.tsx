@@ -1,9 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/Layout';
 import { ChatHistory, Reservation, Room } from '@/types';
 import ConversationPanel from '@/components/ConversationPanel';
+import type { AlimtalkTemplateItem } from '@/components/ChatSendPanel';
+
+const TEMPLATE_VAR_REGEX = /#\{([^}]+)\}/g;
+function extractTemplateVariables(content: string): string[] {
+  const set = new Set<string>();
+  let m: RegExpExecArray | null;
+  while ((m = TEMPLATE_VAR_REGEX.exec(content)) !== null) set.add(m[1].trim());
+  return Array.from(set);
+}
 
 export default function ChatHistoriesPage() {
   const [histories, setHistories] = useState<ChatHistory[]>([]);
@@ -11,6 +20,23 @@ export default function ChatHistoriesPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [selectedHistory, setSelectedHistory] = useState<ChatHistory | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // 일괄 채팅 상태
+  const [showBulkChat, setShowBulkChat] = useState(false);
+  const [bulkChatText, setBulkChatText] = useState('');
+  const [bulkChatIsAd, setBulkChatIsAd] = useState(false);
+  const [sendingBulkChat, setSendingBulkChat] = useState(false);
+  const [bulkChatError, setBulkChatError] = useState<string | null>(null);
+
+  // 일괄 알림톡 상태
+  const [showBulkAlimtalk, setShowBulkAlimtalk] = useState(false);
+  const [alimTemplates, setAlimTemplates] = useState<AlimtalkTemplateItem[]>([]);
+  const [loadingAlimTemplates, setLoadingAlimTemplates] = useState(false);
+  const [selectedTplCode, setSelectedTplCode] = useState<string>('');
+  const [templateParams, setTemplateParams] = useState<Record<string, string>>({});
+  const [sendingBulkAlimtalk, setSendingBulkAlimtalk] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -67,6 +93,14 @@ export default function ChatHistoriesPage() {
     return r?.guestPhone ?? '-';
   };
 
+  const getRawPhone = (history: ChatHistory): string | null => {
+    if (history.userPhone?.trim()) return history.userPhone.trim();
+    const r = reservations.find(
+      (res) => res.userId === history.userId || res.guestName === history.userId
+    );
+    return r?.guestPhone?.trim() || null;
+  };
+
   const getLastMessage = (history: ChatHistory) => {
     if (history.messages.length === 0) return '메시지 없음';
     const lastMsg = history.messages[history.messages.length - 1];
@@ -102,6 +136,183 @@ export default function ChatHistoriesPage() {
     return '메시지';
   };
 
+  const isAllSelected = histories.length > 0 && selectedIds.length === histories.length;
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(histories.map((h) => h.id));
+    }
+  };
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const selectedHistories = useMemo(
+    () => histories.filter((h) => selectedIds.includes(h.id)),
+    [histories, selectedIds]
+  );
+
+  const selectedUserIds = useMemo(
+    () => Array.from(new Set(selectedHistories.map((h) => h.userId))),
+    [selectedHistories]
+  );
+
+  const bulkAlimtalkTargets = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const h of selectedHistories) {
+      const phone = getRawPhone(h);
+      if (phone) {
+        map.set(h.userId, phone);
+      }
+    }
+    const targets = Array.from(map.entries()).map(([userId, phone]) => ({
+      userId,
+      phone,
+    }));
+    return {
+      totalSelected: selectedHistories.length,
+      targets,
+    };
+  }, [selectedHistories]);
+
+  const selectedTemplate = useMemo(
+    () => alimTemplates.find((t) => t.templtCode === selectedTplCode),
+    [alimTemplates, selectedTplCode]
+  );
+
+  const paramKeys = useMemo(
+    () => (selectedTemplate ? extractTemplateVariables(selectedTemplate.templtContent) : []),
+    [selectedTemplate]
+  );
+
+  useEffect(() => {
+    if (!showBulkAlimtalk) return;
+    setLoadingAlimTemplates(true);
+    fetch('/api/alimtalk/templates')
+      .then((res) => (res.ok ? res.json() : []))
+      .then((list: AlimtalkTemplateItem[]) => {
+        const sendable = (list ?? []).filter((t) => t.inspStatus === 'APR' && t.status !== 'S');
+        setAlimTemplates(sendable);
+        if (sendable.length > 0 && !selectedTplCode) {
+          setSelectedTplCode(sendable[0].templtCode);
+        }
+      })
+      .catch(() => setAlimTemplates([]))
+      .finally(() => setLoadingAlimTemplates(false));
+  }, [showBulkAlimtalk, selectedTplCode]);
+
+  const handleOpenBulkChat = () => {
+    if (selectedUserIds.length === 0) {
+      alert('선택된 대화가 없습니다.');
+      return;
+    }
+    setBulkChatError(null);
+    setShowBulkChat(true);
+  };
+
+  const handleSendBulkChat = async () => {
+    if (!bulkChatText.trim() || selectedUserIds.length === 0) return;
+    setSendingBulkChat(true);
+    setBulkChatError(null);
+    try {
+      const res = await fetch('/api/kakao/event/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userIds: selectedUserIds,
+          text: bulkChatText.trim(),
+          isAd: bulkChatIsAd,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      const status = String((data as { status?: string }).status ?? '').toUpperCase();
+      const isSuccess = res.ok && status !== 'FAIL' && status !== 'ERROR' && !(data as { error?: string }).error;
+      if (isSuccess) {
+        alert(`총 ${selectedUserIds.length}명에게 채팅 전송을 요청했습니다.`);
+        setShowBulkChat(false);
+        setBulkChatText('');
+        setBulkChatIsAd(false);
+        setSelectedIds([]);
+      } else {
+        const raw =
+          (data as { message?: string }).message ||
+          (data as { error?: string }).error ||
+          '일괄 채팅 전송에 실패했습니다.';
+        const isAdTimeError =
+          typeof raw === 'string' &&
+          raw.includes('Current time is unavailable for advertisement');
+        const errMsg = isAdTimeError
+          ? '현재 시간에는 카카오 정책상 광고성(마케팅) 메시지를 발송할 수 없습니다.\n허용된 광고 발송 시간대에 다시 시도하시거나, 광고성 체크를 해제하고 정보성 메시지로 전송해 주세요.'
+          : raw;
+        setBulkChatError(errMsg);
+        alert(errMsg);
+      }
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : '일괄 채팅 전송에 실패했습니다.';
+      const isAdTimeError =
+        typeof raw === 'string' &&
+        raw.includes('Current time is unavailable for advertisement');
+      const errMsg = isAdTimeError
+        ? '현재 시간에는 카카오 정책상 광고성(마케팅) 메시지를 발송할 수 없습니다.\n허용된 광고 발송 시간대에 다시 시도하시거나, 광고성 체크를 해제하고 정보성 메시지로 전송해 주세요.'
+        : raw;
+      setBulkChatError(errMsg);
+      alert(errMsg);
+    } finally {
+      setSendingBulkChat(false);
+    }
+  };
+
+  const handleOpenBulkAlimtalk = () => {
+    if (bulkAlimtalkTargets.targets.length === 0) {
+      alert('선택된 대화 중 전화번호가 있는 사용자가 없습니다.');
+      return;
+    }
+    setShowBulkAlimtalk(true);
+  };
+
+  const handleSendBulkAlimtalk = async () => {
+    if (!selectedTplCode || bulkAlimtalkTargets.targets.length === 0) return;
+    setSendingBulkAlimtalk(true);
+    try {
+      const res = await fetch('/api/alimtalk/batch-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tpl_code: selectedTplCode,
+          subject: selectedTemplate?.templtName ?? '알림',
+          params: templateParams,
+          receivers: bulkAlimtalkTargets.targets.map((t) => ({
+            phone: t.phone,
+            userId: t.userId,
+          })),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.code === 0) {
+        alert(
+          `총 ${bulkAlimtalkTargets.targets.length}명에게 알림톡 발송을 요청했습니다.` +
+            (data.failCount && data.failCount > 0
+              ? ` (실패 ${data.failCount}명)`
+              : '')
+        );
+        setShowBulkAlimtalk(false);
+        setTemplateParams({});
+        setSelectedIds([]);
+      } else {
+        alert(data.message || data.error || '일괄 알림톡 발송에 실패했습니다.');
+      }
+    } catch {
+      alert('일괄 알림톡 발송에 실패했습니다.');
+    } finally {
+      setSendingBulkAlimtalk(false);
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -117,35 +328,91 @@ export default function ChatHistoriesPage() {
       <div className="px-4 py-6 sm:px-0">
         <h1 className="text-3xl font-bold text-gray-900 mb-6">카카오톡 챗봇 대화 내역</h1>
 
+        {selectedIds.length > 0 && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm">
+            <span className="text-blue-900">
+              총 {selectedIds.length}개 대화 선택됨 (고유 사용자 {selectedUserIds.length}명)
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleOpenBulkChat}
+                className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-medium hover:bg-blue-700"
+              >
+                선택 사용자에게 채팅 보내기
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenBulkAlimtalk}
+                className="px-3 py-1.5 rounded-md bg-green-600 text-white text-xs font-medium hover:bg-green-700"
+              >
+                선택 사용자에게 알림톡 보내기
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="bg-white shadow overflow-hidden sm:rounded-md">
+          <div className="flex items-center justify-between px-4 py-2 border-b bg-gray-50 text-xs text-gray-600">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                checked={isAllSelected}
+                onChange={toggleSelectAll}
+              />
+              <span>전체 선택</span>
+            </div>
+            <span>총 {histories.length}개 대화</span>
+          </div>
+
           <ul className="divide-y divide-gray-200">
-            {histories.map((history) => (
-              <li key={history.id}>
-                <button
-                  type="button"
-                  onClick={() => handleView(history)}
-                  className="w-full text-left px-4 py-4 sm:px-6 hover:bg-gray-50 cursor-pointer"
-                >
-                  <div className="flex items-center">
-                    <p className="text-sm font-medium text-gray-900">
-                      {history.userName?.trim() || formatName(history.userId)} ({getDisplayPhone(history)})
-                    </p>
-                    <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                      {history.messages.length}개 메시지
-                    </span>
+            {histories.map((history) => {
+              const checked = selectedIds.includes(history.id);
+              return (
+                <li key={history.id}>
+                  <div className="flex items-stretch px-4 py-4 sm:px-6 hover:bg-gray-50">
+                    <div className="mr-3 mt-1">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                        checked={checked}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          toggleSelectOne(history.id);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label="대화 선택"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleView(history)}
+                      className="flex-1 text-left cursor-pointer"
+                    >
+                      <div className="flex items-center">
+                        <p className="text-sm font-medium text-gray-900">
+                          {history.userName?.trim() || formatName(history.userId)} (
+                          {getDisplayPhone(history)})
+                        </p>
+                        <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          {history.messages.length}개 메시지
+                        </span>
+                      </div>
+                      <div className="mt-2">
+                        <p className="text-sm text-gray-600">{getLastMessage(history)}</p>
+                      </div>
+                      <div className="mt-2 text-xs text-gray-500">
+                        시작: {formatDate(history.createdAt)}
+                        {history.updatedAt !== history.createdAt && (
+                          <> • 마지막: {formatDate(history.updatedAt)}</>
+                        )}
+                      </div>
+                    </button>
                   </div>
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-600">{getLastMessage(history)}</p>
-                  </div>
-                  <div className="mt-2 text-xs text-gray-500">
-                    시작: {formatDate(history.createdAt)}
-                    {history.updatedAt !== history.createdAt && (
-                      <> • 마지막: {formatDate(history.updatedAt)}</>
-                    )}
-                  </div>
-                </button>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
           {histories.length === 0 && (
             <div className="text-center py-12 text-gray-500">
@@ -182,6 +449,168 @@ export default function ChatHistoriesPage() {
             }}
           />
         </>
+      )}
+
+      {showBulkChat && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => {
+              if (!sendingBulkChat) {
+                setBulkChatError(null);
+                setShowBulkChat(false);
+              }
+            }}
+          />
+          <div className="relative z-50 w-full max-w-lg rounded-lg bg-white shadow-lg p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3">일괄 채팅 전송</h2>
+            <p className="text-xs text-gray-600 mb-3">
+              선택된 대화 {selectedIds.length}개, 고유 사용자 {selectedUserIds.length}명에게
+              동일한 메시지를 전송합니다.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  보낼 메시지
+                </label>
+                <textarea
+                  rows={4}
+                  value={bulkChatText}
+                  onChange={(e) => setBulkChatText(e.target.value)}
+                  placeholder="보낼 메시지를 입력하세요"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              <label className="inline-flex items-center gap-2 text-xs text-gray-700">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600"
+                  checked={bulkChatIsAd}
+                  onChange={(e) => setBulkChatIsAd(e.target.checked)}
+                />
+                <span>이 메시지는 광고성 정보입니다.</span>
+              </label>
+            </div>
+            {bulkChatError && (
+              <p className="mt-3 text-sm text-red-600 bg-red-50 rounded px-3 py-2">
+                {bulkChatError}
+                {bulkChatIsAd && bulkChatError.includes('실패') && (
+                  <span className="block mt-1 text-xs text-red-500">
+                    .env의 KAKAO_ADMIN_AD_MESSAGE_EVENT에 넣은 이벤트 이름이 카카오 빌더에 등록되어 있는지 확인해 주세요.
+                  </span>
+                )}
+              </p>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!sendingBulkChat) {
+                    setBulkChatError(null);
+                    setShowBulkChat(false);
+                  }
+                }}
+                className="px-4 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+                disabled={sendingBulkChat}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleSendBulkChat}
+                disabled={sendingBulkChat || !bulkChatText.trim()}
+                className="px-4 py-2 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {sendingBulkChat ? '전송 중…' : '전송'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBulkAlimtalk && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => {
+              if (!sendingBulkAlimtalk) setShowBulkAlimtalk(false);
+            }}
+          />
+          <div className="relative z-50 w-full max-w-lg rounded-lg bg-white shadow-lg p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3">일괄 알림톡 발송</h2>
+            <p className="text-xs text-gray-600 mb-3">
+              선택된 대화 {bulkAlimtalkTargets.totalSelected}개 중 전화번호가 있는 사용자{' '}
+              {bulkAlimtalkTargets.targets.length}명에게 발송합니다.
+            </p>
+            {loadingAlimTemplates ? (
+              <p className="text-sm text-gray-500">템플릿 불러오는 중…</p>
+            ) : alimTemplates.length === 0 ? (
+              <p className="text-sm text-gray-500">발송 가능한 알림톡 템플릿이 없습니다.</p>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    템플릿 선택
+                  </label>
+                  <select
+                    value={selectedTplCode}
+                    onChange={(e) => {
+                      setSelectedTplCode(e.target.value);
+                      setTemplateParams({});
+                    }}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  >
+                    {alimTemplates.map((t) => (
+                      <option key={t.templtCode} value={t.templtCode}>
+                        {t.templtName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {paramKeys.length > 0 && (
+                  <div className="space-y-1">
+                    {paramKeys.map((key) => (
+                      <div key={key} className="flex items-center gap-2">
+                        <span className="text-xs text-gray-600 w-24 shrink-0">#{key}</span>
+                        <input
+                          type="text"
+                          value={templateParams[key] ?? ''}
+                          onChange={(e) =>
+                            setTemplateParams((p) => ({ ...p, [key]: e.target.value }))
+                          }
+                          placeholder={`${key} 입력`}
+                          className="flex-1 rounded border border-gray-300 px-2 py-1.5 text-sm"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => !sendingBulkAlimtalk && setShowBulkAlimtalk(false)}
+                className="px-4 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+                disabled={sendingBulkAlimtalk}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleSendBulkAlimtalk}
+                disabled={
+                  sendingBulkAlimtalk ||
+                  !selectedTplCode ||
+                  bulkAlimtalkTargets.targets.length === 0
+                }
+                className="px-4 py-2 text-sm rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+              >
+                {sendingBulkAlimtalk ? '발송 중…' : '알림톡 발송'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </Layout>
   );

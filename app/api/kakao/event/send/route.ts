@@ -6,8 +6,9 @@ import { setPendingAdminMessage } from '@/lib/store';
  * POST: 카카오 이벤트 API 발송
  * body:
  * - userId 또는 userIds (배열) 중 하나 필수
- * - 채팅 입력(관리자 메시지): text 또는 message 있으면 admin_message 이벤트로 발송
- *   → eventName: .env KAKAO_ADMIN_MESSAGE_EVENT (기본값 admin_message), eventData: { text }
+ * - 채팅 입력(관리자 메시지): text 또는 message 있으면 관리자 메시지 이벤트로 발송
+ *   → 기본: eventName: .env KAKAO_ADMIN_MESSAGE_EVENT (기본값 admin_message), eventData: { text }
+ *   → 광고성(isAd === true): eventName: .env KAKAO_ADMIN_AD_MESSAGE_EVENT (없으면 KAKAO_ADMIN_MESSAGE_EVENT와 동일)
  * - 그 외: eventName 없으면 .env KAKAO_EVENT_NAME 사용 (테스트용)
  */
 export async function POST(request: NextRequest) {
@@ -16,6 +17,8 @@ export async function POST(request: NextRequest) {
     const restApiKey = process.env.KAKAO_REST_API_KEY;
     const defaultEventName = process.env.KAKAO_EVENT_NAME;
     const adminMessageEventName = process.env.KAKAO_ADMIN_MESSAGE_EVENT || 'admin_message';
+    const adminAdMessageEventName =
+      process.env.KAKAO_ADMIN_AD_MESSAGE_EVENT || adminMessageEventName;
 
     if (!botId || !restApiKey) {
       return NextResponse.json(
@@ -29,9 +32,12 @@ export async function POST(request: NextRequest) {
     const userIds = body.userIds as string[] | undefined;
     const text = (body.text as string) ?? (body.message as string);
     const isAdminMessage = typeof text === 'string' && text.trim().length > 0;
+    const isAd = Boolean(body.isAd);
 
     const eventName = isAdminMessage
-      ? adminMessageEventName
+      ? isAd
+        ? adminAdMessageEventName
+        : adminMessageEventName
       : ((body.eventName as string) || defaultEventName);
     const eventData = isAdminMessage ? { text: text.trim() } : undefined;
 
@@ -63,6 +69,14 @@ export async function POST(request: NextRequest) {
       userIds: ids,
       eventData,
     });
+
+    const status = String(result.status || '').toUpperCase();
+    if (status === 'FAIL' || status === 'ERROR') {
+      return NextResponse.json(
+        { error: result.message || '카카오 이벤트 발송 실패', status: result.status },
+        { status: 400 }
+      );
+    }
 
     return NextResponse.json(result);
   } catch (error) {

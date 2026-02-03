@@ -72,14 +72,20 @@ export async function sendKakaoEvent(params: {
   });
 
   const text = await res.text();
-  let data: KakaoEventSendResult;
+  let data: KakaoEventSendResult & { code?: number; error?: string; msg?: string };
   try {
     data = JSON.parse(text);
   } catch {
     throw new Error(`Event API 응답 파싱 실패: ${text.substring(0, 200)}`);
   }
 
-  return data;
+  if (!res.ok) {
+    const errMsg =
+      (data.message ?? data.error ?? data.msg ?? text) || '이벤트 발송 실패';
+    throw new Error(typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg));
+  }
+
+  return data as KakaoEventSendResult;
 }
 
 /**
