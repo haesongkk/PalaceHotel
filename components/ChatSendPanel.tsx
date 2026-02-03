@@ -124,6 +124,7 @@ export default function ChatSendPanel({
           receiver: phone,
           subject: selectedTemplate?.templtName ?? '알림',
           params: templateParams,
+          ...(userId ? { userId } : {}),
         }),
       });
       const data = await res.json().catch(() => ({}));

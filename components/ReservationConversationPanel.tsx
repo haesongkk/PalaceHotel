@@ -149,7 +149,7 @@ export default function ReservationConversationPanel({
               </button>
             </>
           )}
-          {(reservation.status === 'pending' || reservation.status === 'confirmed') && (
+          {reservation.status === 'confirmed' && (
             <button
               type="button"
               onClick={() => handleStatusChange('cancelled_by_admin')}
@@ -227,7 +227,13 @@ export default function ReservationConversationPanel({
               .then((data) => { if (data != null) setHistory(data); });
           }
         }}
-        onAlimtalkSent={() => {}}
+        onAlimtalkSent={() => {
+          if (userId) {
+            fetch(`/api/chat-histories?userId=${encodeURIComponent(userId)}`)
+              .then((r) => (r.ok ? r.json() : null))
+              .then((data) => { if (data != null) setHistory(data); });
+          }
+        }}
       />
     </div>
   );

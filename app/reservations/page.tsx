@@ -252,7 +252,7 @@ export default function ReservationsPage() {
                             </button>
                           </>
                         )}
-                        {(reservation.status === 'pending' || reservation.status === 'confirmed') && (
+                        {reservation.status === 'confirmed' && (
                           <button
                             type="button"
                             onClick={(e) => {
