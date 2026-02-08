@@ -20,6 +20,13 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* 입력 필드: 배경 상관없이 항상 읽기 쉬운 진한 글자 (모달 등 흰 배경 위에서 일관되게) */
+input,
+textarea,
+select {
+  color: #111827;
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
