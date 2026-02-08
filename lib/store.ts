@@ -212,7 +212,9 @@ class DataStore {
   updateChatbotMessage(situation: ChatbotSituation, message: string): ChatbotMessage | null {
     const existing = this.chatbotMessages.get(situation);
     if (!existing) return null;
-    
+    if (existing.message !== message) {
+      this.addChatbotMessageHistory(situation, existing.message);
+    }
     const updated: ChatbotMessage = {
       ...existing,
       message,
@@ -330,6 +332,63 @@ class DataStore {
 
   deletePendingReservation(userId: string): boolean {
     return this.pendingReservations.delete(userId);
+  }
+
+  // 알림톡 템플릿 이전 버전 & 활성 매핑 (메모리)
+  private templateHistory: Map<string, Array<{ tplCode: string; content: string; savedAt: string }>> = new Map();
+  private templateActiveMapping: Map<string, string> = new Map(); // displayName -> tplCode
+
+  getTemplateHistory(displayName: string): Array<{ tplCode: string; content: string; savedAt: string }> {
+    return this.templateHistory.get(displayName) ?? [];
+  }
+
+  addTemplateHistory(displayName: string, tplCode: string, content: string): void {
+    const list = this.templateHistory.get(displayName) ?? [];
+    list.unshift({ tplCode, content, savedAt: new Date().toISOString() });
+    if (list.length > 10) list.pop();
+    this.templateHistory.set(displayName, list);
+  }
+
+  deleteTemplateHistoryItem(displayName: string, tplCode: string): void {
+    const list = this.templateHistory.get(displayName) ?? [];
+    const idx = list.findIndex((x) => x.tplCode === tplCode);
+    if (idx >= 0) {
+      list.splice(idx, 1);
+      this.templateHistory.set(displayName, list);
+      if (this.templateActiveMapping.get(displayName) === tplCode) {
+        this.templateActiveMapping.set(displayName, list[0]?.tplCode ?? '');
+      }
+    }
+  }
+
+  setTemplateActive(displayName: string, tplCode: string): void {
+    this.templateActiveMapping.set(displayName, tplCode);
+  }
+
+  getTemplateActive(displayName: string): string | undefined {
+    return this.templateActiveMapping.get(displayName);
+  }
+
+  // 챗봇 멘트 이전 버전 (메모리)
+  private chatbotMessageHistory: Map<ChatbotSituation, Array<{ message: string; savedAt: string }>> = new Map();
+
+  getChatbotMessageHistory(situation: ChatbotSituation): Array<{ message: string; savedAt: string }> {
+    return this.chatbotMessageHistory.get(situation) ?? [];
+  }
+
+  addChatbotMessageHistory(situation: ChatbotSituation, message: string): void {
+    const list = this.chatbotMessageHistory.get(situation) ?? [];
+    list.unshift({ message, savedAt: new Date().toISOString() });
+    if (list.length > 10) list.pop();
+    this.chatbotMessageHistory.set(situation, list);
+  }
+
+  deleteChatbotMessageHistoryItem(situation: ChatbotSituation, index: number): void {
+    const list = this.chatbotMessageHistory.get(situation) ?? [];
+    if (index >= 0 && index < list.length) {
+      list.splice(index, 1);
+      this.chatbotMessageHistory.set(situation, list);
+    }
   }
 
   // 만료된 임시 예약 정보 정리 (10분 이상 경과)

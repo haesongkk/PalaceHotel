@@ -29,6 +29,12 @@ export interface ChatSendPanelReservationContext {
   checkOut: string;
   totalPrice: number;
   reservationId: string;
+  /** 관리자 메모 (템플릿 변수: #{memo}) */
+  memo?: string;
+  /** 입실시간 HH:mm (템플릿 변수: #{checkInTime}) */
+  checkInTime?: string;
+  /** 퇴실시간 HH:mm (템플릿 변수: #{checkOutTime}) */
+  checkOutTime?: string;
 }
 
 interface ChatSendPanelProps {
@@ -80,12 +86,16 @@ export default function ChatSendPanel({
   useEffect(() => {
     if (!selectedTemplate || !reservationContext) return;
     const next: Record<string, string> = { ...templateParams };
-    const { roomType, checkIn, checkOut, totalPrice, reservationId } = reservationContext;
+    const { roomType, checkIn, checkOut, totalPrice, reservationId, memo, checkInTime, checkOutTime } =
+      reservationContext;
     if (paramKeys.includes('roomType')) next['roomType'] = roomType;
     if (paramKeys.includes('checkIn')) next['checkIn'] = formatDateForAlimtalk(checkIn);
     if (paramKeys.includes('checkOut')) next['checkOut'] = formatDateForAlimtalk(checkOut);
     if (paramKeys.includes('totalPrice')) next['totalPrice'] = String(totalPrice);
-    if (paramKeys.includes('예약ID')) next['예약ID'] = reservationId;
+    if (paramKeys.includes('reservationId')) next['reservationId'] = reservationId;
+    if (paramKeys.includes('memo')) next['memo'] = memo ?? '';
+    if (paramKeys.includes('checkInTime')) next['checkInTime'] = checkInTime ?? '';
+    if (paramKeys.includes('checkOutTime')) next['checkOutTime'] = checkOutTime ?? '';
     setTemplateParams((prev) => ({ ...prev, ...next }));
   }, [selectedTplCode, reservationContext?.reservationId]);
 

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTemplateList, createTemplate } from '@/lib/alimtalk';
+import { dataStore } from '@/lib/store';
+import { toInternalTemplateName } from '@/lib/alimtalk-config';
 
 /**
  * GET: 알림톡 템플릿 목록 조회
@@ -16,15 +18,20 @@ export async function GET() {
 
 /**
  * POST: 신규 템플릿 생성
- * body: { tpl_name, tpl_content, tpl_type?, tpl_emtype?, tpl_title?, tpl_stitle?, tpl_button? }
+ * body: { displayName, tpl_content } 또는 legacy { tpl_name, tpl_content, ... }
+ * displayName 있으면 내부 등록용 이름 = displayName_sanitized + timestamp
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { tpl_name, tpl_content, tpl_type, tpl_emtype, tpl_title, tpl_stitle, tpl_button } = body;
+    const displayName = body.displayName as string | undefined;
+    const tpl_content = body.tpl_content;
+    const tpl_name = body.tpl_name ?? (displayName ? toInternalTemplateName(displayName) : undefined);
+    const { tpl_type, tpl_emtype, tpl_title, tpl_stitle, tpl_button } = body;
+
     if (!tpl_name || !tpl_content) {
       return NextResponse.json(
-        { error: 'tpl_name, tpl_content는 필수입니다.' },
+        { error: 'displayName(또는 tpl_name), tpl_content는 필수입니다.' },
         { status: 400 }
       );
     }
@@ -37,6 +44,10 @@ export async function POST(request: NextRequest) {
       tpl_stitle,
       tpl_button,
     });
+    if (displayName) {
+      dataStore.addTemplateHistory(displayName, data.templtCode, data.templtContent);
+      dataStore.setTemplateActive(displayName, data.templtCode);
+    }
     return NextResponse.json(data);
   } catch (error) {
     const message = error instanceof Error ? error.message : '템플릿 생성 실패';

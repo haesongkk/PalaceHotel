@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dataStore } from '@/lib/store';
-import { sendReservationStatusAlimtalk } from '@/lib/alimtalk';
+import { sendReservationStatusAlimtalk, sendReservationCancelledByAdminAlimtalk } from '@/lib/alimtalk';
 import type { ReservationStatus } from '@/types';
 
 export async function GET(
@@ -49,14 +49,17 @@ export async function PUT(
       return NextResponse.json({ error: 'Reservation not found' }, { status: 404 });
     }
 
-    // 상태가 pending에서 confirmed 또는 rejected로 변경된 경우에만 고객에게 알림톡 발송
+    const room = dataStore.getRoom(reservation.roomId);
+    const roomType = room?.type ?? '객실';
+    const isDayUse =
+      new Date(reservation.checkIn).toDateString() === new Date(reservation.checkOut).toDateString();
+    const checkInTime = room ? (isDayUse ? room.dayUseCheckIn : room.stayCheckIn) : undefined;
+    const checkOutTime = room ? (isDayUse ? room.dayUseCheckOut : room.stayCheckOut) : undefined;
+
     if (
       oldStatus === 'pending' &&
       (newStatus === 'confirmed' || newStatus === 'rejected')
     ) {
-      const room = dataStore.getRoom(reservation.roomId);
-      const roomType = room?.type ?? '객실';
-
       if (reservation.guestPhone) {
         sendReservationStatusAlimtalk(
           reservation.guestPhone,
@@ -66,12 +69,25 @@ export async function PUT(
             checkIn: reservation.checkIn,
             checkOut: reservation.checkOut,
             totalPrice: newStatus === 'confirmed' ? reservation.totalPrice : undefined,
+            checkInTime,
+            checkOutTime,
           }
         ).catch((error) => {
           console.error(`[알림톡 발송 실패] 예약 ${reservation.id} ${newStatus}`, error);
-          // 알림톡 실패해도 예약 상태는 정상 업데이트됨
         });
       }
+    }
+
+    if (newStatus === 'cancelled_by_admin' && reservation.guestPhone) {
+      sendReservationCancelledByAdminAlimtalk(reservation.guestPhone, {
+        roomType,
+        checkIn: reservation.checkIn,
+        checkOut: reservation.checkOut,
+        checkInTime,
+        checkOutTime,
+      }).catch((error) => {
+        console.error(`[알림톡 발송 실패] 예약 ${reservation.id} 취소 안내`, error);
+      });
     }
 
     return NextResponse.json(reservation);

@@ -1,5 +1,5 @@
 import { dataStore } from '@/lib/store';
-import { sendReservationNotificationAlimtalk } from '@/lib/alimtalk';
+import { sendReservationNotificationAlimtalk, sendReservationCancelledAlimtalk } from '@/lib/alimtalk';
 import type { ChatbotSituation, DayOfWeek, Room, Reservation, ReservationStatus, DayPrices } from '@/types';
 import type {
   KakaoSkillRequest,
@@ -450,6 +450,14 @@ export function handleReservationHistorySkill(req: KakaoSkillRequest): KakaoSkil
 
     const updated =
       dataStore.updateReservation(reservationId, { status: 'cancelled_by_guest' }) ?? existing;
+
+    const room = dataStore.getRoom(updated.roomId);
+    const roomType = room?.type ?? '객실';
+    sendReservationCancelledAlimtalk(updated.id, {
+      roomType,
+      checkIn: updated.checkIn,
+      checkOut: updated.checkOut,
+    }).catch((err) => console.error('[알림톡] 예약 취소 알림 실패', err));
 
     const cancelMessage =
       dataStore.getChatbotMessage('reservation_cancel')?.message ??

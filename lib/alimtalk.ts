@@ -263,16 +263,39 @@ function formatDateForAlimtalk(dateString: string): string {
   return `${year}년 ${month}월 ${day}일`;
 }
 
-/** 알림톡 템플릿 이름 (등록된 템플릿명과 정확히 일치해야 함) */
-const TEMPLATE_NAME_ADMIN = '관리자 알림';
-const TEMPLATE_NAME_CONFIRMED = '예약 확정 안내';
-const TEMPLATE_NAME_REJECTED = '예약 거절 안내';
+import { dataStore } from '@/lib/store';
+import { toInternalTemplateName } from '@/lib/alimtalk-config';
+
+/** 표시 이름 기준 템플릿 상수 */
+const DISPLAY_NAME_RESERVATION_REQUEST = '예약 요청 알림';
+const DISPLAY_NAME_RESERVATION_CANCEL_ADMIN = '예약 취소 알림';
+const DISPLAY_NAME_CONFIRMED = '예약 확정 안내';
+const DISPLAY_NAME_REJECTED = '예약 거절 안내';
+const DISPLAY_NAME_CANCELLED_BY_ADMIN = '예약 취소 안내';
+
+function sanitizeDisplayName(displayName: string): string {
+  return displayName.replace(/\s+/g, '');
+}
 
 /**
- * 템플릿 이름으로 템플릿 코드 조회 (승인된 템플릿만)
- * inspStatus === 'APR' 이면 발송 가능. status 'A'(정상) 또는 'R'(대기) 둘 다 허용 (알리고 API 응답 예: status R + inspStatus APR)
+ * 표시 이름으로 템플릿 코드 조회 (승인된 템플릿만)
+ * 1) store 활성 매핑 확인 2) Aligo 목록에서 매칭 (templtName이 displayName_sanitized_로 시작)
  */
-async function getTemplateCodeByName(templateName: string): Promise<string | null> {
+export async function getTemplateCodeByDisplayName(displayName: string): Promise<string | null> {
+  const list = await getTemplateList();
+  const sendable = list.filter((x) => x.inspStatus === 'APR' && x.status !== 'S');
+  const prefix = `${sanitizeDisplayName(displayName)}_`;
+  const active = dataStore.getTemplateActive(displayName);
+  if (active) {
+    const found = sendable.find((x) => x.templtCode === active);
+    if (found) return active;
+  }
+  const t = sendable.find((x) => (x.templtName ?? '').startsWith(prefix));
+  return t?.templtCode ?? null;
+}
+
+/** 구 템플릿명 매핑 (하위 호환) */
+async function getTemplateCodeByNameLegacy(templateName: string): Promise<string | null> {
   const list = await getTemplateList();
   const t = list.find(
     (x) =>
@@ -285,17 +308,19 @@ async function getTemplateCodeByName(templateName: string): Promise<string | nul
 
 /**
  * 예약 요청 알림 (관리자에게 알림톡)
- * 템플릿 "관리자 알림"을 이름으로 조회하여 사용
  */
 export async function sendReservationNotificationAlimtalk(reservationId: string): Promise<SendAlimtalkResult> {
   const adminPhone = process.env.ALIGO_ADMIN_PHONE;
   if (!adminPhone) {
     throw new Error('관리자 전화번호가 설정되지 않았습니다. ALIGO_ADMIN_PHONE을 .env에 설정하세요.');
   }
-  const tplCode = await getTemplateCodeByName(TEMPLATE_NAME_ADMIN);
+  let tplCode = await getTemplateCodeByDisplayName(DISPLAY_NAME_RESERVATION_REQUEST);
+  if (!tplCode) {
+    tplCode = await getTemplateCodeByNameLegacy('관리자 알림');
+  }
   if (!tplCode) {
     throw new Error(
-      `"${TEMPLATE_NAME_ADMIN}" 템플릿을 찾을 수 없습니다. 챗봇 멘트에서 알림톡 템플릿을 등록·승인해주세요.`
+      `"${DISPLAY_NAME_RESERVATION_REQUEST}" 템플릿을 찾을 수 없습니다. 챗봇 멘트에서 알림톡 템플릿을 등록·승인해주세요.`
     );
   }
   const content = await getTemplateContent(tplCode);
@@ -304,14 +329,14 @@ export async function sendReservationNotificationAlimtalk(reservationId: string)
     tpl_code: tplCode,
     receiver: adminPhone,
     subject: '팰리스호텔 예약 알림',
-    message: message.replace(/#{예약ID}/g, reservationId),
+    message: message.replace(/#{reservationId}/g, reservationId),
   });
 }
 
 /**
  * 예약 확정/거절 알림 (고객에게 알림톡)
  * 템플릿 "예약 확정 안내", "예약 거절 안내"를 이름으로 조회하여 사용
- * 본문 변수: #{roomType}, #{checkIn}, #{checkOut}, #{totalPrice}(확정 시만)
+ * 본문 변수: #{roomType}, #{checkIn}, #{checkOut}, #{totalPrice}(확정 시만), #{checkInTime}, #{checkOutTime}
  */
 export async function sendReservationStatusAlimtalk(
   phoneNumber: string,
@@ -321,10 +346,14 @@ export async function sendReservationStatusAlimtalk(
     checkIn: string;
     checkOut: string;
     totalPrice?: number;
+    /** 입실시간 HH:mm (템플릿 변수: #{checkInTime}) */
+    checkInTime?: string;
+    /** 퇴실시간 HH:mm (템플릿 변수: #{checkOutTime}) */
+    checkOutTime?: string;
   }
 ): Promise<SendAlimtalkResult> {
-  const templateName = status === 'confirmed' ? TEMPLATE_NAME_CONFIRMED : TEMPLATE_NAME_REJECTED;
-  const tplCode = await getTemplateCodeByName(templateName);
+  const templateName = status === 'confirmed' ? DISPLAY_NAME_CONFIRMED : DISPLAY_NAME_REJECTED;
+  const tplCode = await getTemplateCodeByDisplayName(templateName);
   if (!tplCode) {
     throw new Error(
       `"${templateName}" 템플릿을 찾을 수 없습니다. 챗봇 멘트에서 알림톡 템플릿을 등록·승인해주세요.`
@@ -336,10 +365,14 @@ export async function sendReservationStatusAlimtalk(
   }
   const checkIn = formatDateForAlimtalk(reservationInfo.checkIn);
   const checkOut = formatDateForAlimtalk(reservationInfo.checkOut);
+  const checkInTime = reservationInfo.checkInTime ?? '';
+  const checkOutTime = reservationInfo.checkOutTime ?? '';
   let message = content
     .replace(/#{roomType}/g, reservationInfo.roomType)
     .replace(/#{checkIn}/g, checkIn)
-    .replace(/#{checkOut}/g, checkOut);
+    .replace(/#{checkOut}/g, checkOut)
+    .replace(/#{checkInTime}/g, checkInTime)
+    .replace(/#{checkOutTime}/g, checkOutTime);
   if (reservationInfo.totalPrice !== undefined) {
     message = message.replace(/#{totalPrice}/g, reservationInfo.totalPrice.toLocaleString());
   }
@@ -348,6 +381,83 @@ export async function sendReservationStatusAlimtalk(
     tpl_code: tplCode,
     receiver: phoneNumber,
     subject,
+    message,
+  });
+}
+
+/**
+ * 예약 취소 알림 (고객이 취소했을 때 관리자에게)
+ */
+export async function sendReservationCancelledAlimtalk(
+  reservationId: string,
+  reservationInfo: {
+    roomType: string;
+    checkIn: string;
+    checkOut: string;
+  }
+): Promise<SendAlimtalkResult> {
+  const adminPhone = process.env.ALIGO_ADMIN_PHONE;
+  if (!adminPhone) {
+    throw new Error('관리자 전화번호가 설정되지 않았습니다. ALIGO_ADMIN_PHONE을 .env에 설정하세요.');
+  }
+  const tplCode = await getTemplateCodeByDisplayName(DISPLAY_NAME_RESERVATION_CANCEL_ADMIN);
+  if (!tplCode) {
+    throw new Error(
+      `"${DISPLAY_NAME_RESERVATION_CANCEL_ADMIN}" 템플릿을 찾을 수 없습니다. 챗봇 멘트에서 알림톡 템플릿을 등록·승인해주세요.`
+    );
+  }
+  const content = await getTemplateContent(tplCode);
+  const message =
+    (content ?? '[팰리스호텔] 고객이 예약을 취소했습니다.')
+      .replace(/#{reservationId}/g, reservationId)
+      .replace(/#{roomType}/g, reservationInfo.roomType)
+      .replace(/#{checkIn}/g, formatDateForAlimtalk(reservationInfo.checkIn))
+      .replace(/#{checkOut}/g, formatDateForAlimtalk(reservationInfo.checkOut));
+  return sendAlimtalk({
+    tpl_code: tplCode,
+    receiver: adminPhone,
+    subject: '예약 취소 알림',
+    message,
+  });
+}
+
+/**
+ * 예약 취소 안내 (관리자가 취소했을 때 고객에게)
+ */
+export async function sendReservationCancelledByAdminAlimtalk(
+  phoneNumber: string,
+  reservationInfo: {
+    roomType: string;
+    checkIn: string;
+    checkOut: string;
+    checkInTime?: string;
+    checkOutTime?: string;
+  }
+): Promise<SendAlimtalkResult> {
+  const tplCode = await getTemplateCodeByDisplayName(DISPLAY_NAME_CANCELLED_BY_ADMIN);
+  if (!tplCode) {
+    throw new Error(
+      `"${DISPLAY_NAME_CANCELLED_BY_ADMIN}" 템플릿을 찾을 수 없습니다. 챗봇 멘트에서 알림톡 템플릿을 등록·승인해주세요.`
+    );
+  }
+  const content = await getTemplateContent(tplCode);
+  if (!content) {
+    throw new Error(`템플릿 "${DISPLAY_NAME_CANCELLED_BY_ADMIN}"의 본문을 가져올 수 없습니다.`);
+  }
+  const checkIn = formatDateForAlimtalk(reservationInfo.checkIn);
+  const checkOut = formatDateForAlimtalk(reservationInfo.checkOut);
+  const checkInTime = reservationInfo.checkInTime ?? '';
+  const checkOutTime = reservationInfo.checkOutTime ?? '';
+  const message = content
+    .replace(/#{roomType}/g, reservationInfo.roomType)
+    .replace(/#{checkIn}/g, checkIn)
+    .replace(/#{checkOut}/g, checkOut)
+    .replace(/#{checkInTime}/g, checkInTime)
+    .replace(/#{checkOutTime}/g, checkOutTime);
+  return sendAlimtalk({
+    tpl_code: tplCode,
+    receiver: phoneNumber,
+    subject: '예약 취소 안내',
     message,
   });
 }
