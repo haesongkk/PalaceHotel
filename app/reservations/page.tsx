@@ -32,12 +32,37 @@ const FILTER_TABS: { key: FilterTab; label: string }[] = [
   { key: 'cancelled_by_admin', label: '관리자 취소' },
 ];
 
-function sortReservations(list: Reservation[]): Reservation[] {
-  return [...list].sort((a, b) => {
-    if (a.status === 'pending' && b.status !== 'pending') return -1;
-    if (a.status !== 'pending' && b.status === 'pending') return 1;
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
+function sortReservations(list: Reservation[], activeFilter: FilterTab): Reservation[] {
+  const byCreatedAsc = (a: Reservation, b: Reservation) =>
+    new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+  const byCreatedDesc = (a: Reservation, b: Reservation) =>
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+
+  // 고객 취소 탭: 미확인(guestCancellationConfirmed !== true) 먼저, 오래된순
+  if (activeFilter === 'cancelled_by_guest') {
+    const unconfirmed = list.filter(
+      (r) => r.status === 'cancelled_by_guest' && !r.guestCancellationConfirmed
+    );
+    const confirmed = list.filter(
+      (r) => r.status === 'cancelled_by_guest' && r.guestCancellationConfirmed
+    );
+    return [...unconfirmed.sort(byCreatedAsc), ...confirmed.sort(byCreatedDesc)];
+  }
+
+  // 전체 탭: 대기 + 고객취소 미확인 먼저, 그 안에서는 오래된순 / 나머지는 최근순
+  if (activeFilter === 'all') {
+    const important = list.filter(
+      (r) =>
+        r.status === 'pending' ||
+        (r.status === 'cancelled_by_guest' && !r.guestCancellationConfirmed)
+    );
+    const importantIds = new Set(important.map((r) => r.id));
+    const others = list.filter((r) => !importantIds.has(r.id));
+    return [...important.sort(byCreatedAsc), ...others.sort(byCreatedDesc)];
+  }
+
+  // 나머지 필터: 최근순
+  return [...list].sort(byCreatedDesc);
 }
 
 export default function ReservationsPage() {
@@ -149,6 +174,23 @@ export default function ReservationsPage() {
     }
   };
 
+  const handleGuestCancellationConfirm = async (id: string) => {
+    try {
+      const response = await fetch(`/api/reservations/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guestCancellationConfirmed: true }),
+      });
+      if (response.ok) {
+        fetchData();
+      } else {
+        alert('취소 확인 처리에 실패했습니다.');
+      }
+    } catch {
+      alert('취소 확인 처리에 실패했습니다.');
+    }
+  };
+
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleDateString('ko-KR', {
       year: 'numeric',
@@ -156,10 +198,9 @@ export default function ReservationsPage() {
       day: 'numeric',
     });
 
-  const filtered = filter === 'all'
-    ? reservations
-    : reservations.filter((r) => r.status === filter);
-  const sorted = sortReservations(filtered);
+  const filtered =
+    filter === 'all' ? reservations : reservations.filter((r) => r.status === filter);
+  const sorted = sortReservations(filtered, filter);
 
   if (loading) {
     return (
@@ -197,6 +238,10 @@ export default function ReservationsPage() {
           <ul className="divide-y divide-gray-200">
             {sorted.map((reservation) => {
               const room = getRoomInfo(reservation.roomId);
+              const isImportant =
+                reservation.status === 'pending' ||
+                (reservation.status === 'cancelled_by_guest' &&
+                  !reservation.guestCancellationConfirmed);
               return (
                 <li key={reservation.id}>
                   <div
@@ -209,11 +254,16 @@ export default function ReservationsPage() {
                         handleRowClick(reservation, e as unknown as React.MouseEvent);
                       }
                     }}
-                    className="px-4 py-4 sm:px-6 hover:bg-gray-50 cursor-pointer"
+                    className={`px-4 py-4 sm:px-6 cursor-pointer transition-colors ${
+                      isImportant ? 'bg-amber-50 hover:bg-amber-100' : 'hover:bg-gray-50'
+                    }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center flex-wrap gap-2">
+                          {isImportant && (
+                            <span className="inline-flex h-2 w-2 rounded-full bg-amber-400" />
+                          )}
                           <p className="text-sm font-medium text-gray-900 truncate">
                             {reservation.guestName} ({reservation.guestPhone})
                           </p>
@@ -272,6 +322,19 @@ export default function ReservationsPage() {
                             취소
                           </button>
                         )}
+                        {reservation.status === 'cancelled_by_guest' &&
+                          !reservation.guestCancellationConfirmed && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleGuestCancellationConfirm(reservation.id);
+                              }}
+                              className="text-sm font-medium text-gray-500 hover:text-gray-700"
+                            >
+                              확인됨
+                            </button>
+                          )}
                       </div>
                     </div>
                   </div>

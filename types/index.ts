@@ -56,6 +56,8 @@ export interface Reservation {
   createdAt: string; // ISO date string
   /** 관리자 메모 (수기 예약용 메모 포함) */
   adminMemo?: string;
+  /** 고객이 직접 예약을 취소한 경우, 관리자가 해당 취소를 확인했는지 여부 */
+  guestCancellationConfirmed?: boolean;
 }
 
 // 임시 예약 정보 타입 (전화번호 입력 대기 중)
