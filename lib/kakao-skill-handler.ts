@@ -717,11 +717,36 @@ function handleReservationWithPhone(
   // 예약 요청 저장 (userId로 대화 내역과 연결). 저장된 이름이 있으면 사용
   const guestNameDisplay =
     (history?.userName?.trim()) || (userId.length > 8 ? userId.slice(0, 8) : userId);
+
+  // 재고 체크: 객실 타입별 재고를 초과하는 경우 예약 불가 처리
+  const isAvailable = dataStore.isRoomAvailable(
+    pendingReservation.roomId,
+    pendingReservation.checkIn,
+    pendingReservation.checkOut
+  );
+
+  if (!isAvailable) {
+    // 사용자의 임시 예약 정보는 정리
+    dataStore.deletePendingReservation(userId);
+
+    const message =
+      '죄송합니다. 선택하신 날짜에는 남은 객실이 없습니다.\n' +
+      '다른 날짜를 선택하시거나 객실 타입을 변경해서 다시 시도해 주세요.';
+
+    return {
+      version: '2.0',
+      template: {
+        outputs: [simpleText(message)],
+      },
+    };
+  }
+
   const reservation = dataStore.addReservation({
     roomId: pendingReservation.roomId,
     guestName: guestNameDisplay,
     guestPhone: phoneNumber,
     userId, // 원본 그대로 저장
+    source: 'kakao',
     checkIn: pendingReservation.checkIn,
     checkOut: pendingReservation.checkOut,
     status: 'pending',

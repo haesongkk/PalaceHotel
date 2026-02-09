@@ -1,9 +1,10 @@
-import { Room, Reservation, ChatbotMessage, ChatHistory, ChatMessage, ChatbotSituation, PendingReservation } from '@/types';
+import { Room, Reservation, ChatbotMessage, ChatHistory, ChatMessage, ChatbotSituation, PendingReservation, ReservationType } from '@/types';
 
 // 메모리 데이터 저장소
 class DataStore {
   private rooms: Room[] = [];
   private reservations: Reservation[] = [];
+  private reservationTypes: ReservationType[] = [];
   private chatbotMessages: Map<ChatbotSituation, ChatbotMessage> = new Map();
   private chatHistories: ChatHistory[] = [];
   private pendingReservations: Map<string, PendingReservation> = new Map(); // userId -> PendingReservation
@@ -91,6 +92,17 @@ class DataStore {
         dayUseCheckOut: '18:00',
         stayCheckIn: '15:00',
         stayCheckOut: '11:00',
+      },
+    ];
+
+    // 예약 타입 샘플 데이터 (수기 예약용)
+    // 기본 타입: "일반" (수정/삭제 불가)
+    this.reservationTypes = [
+      {
+        id: 'default',
+        name: '일반',
+        color: 'bg-gray-100 text-gray-800',
+        createdAt: new Date().toISOString(),
       },
     ];
 
@@ -197,6 +209,119 @@ class DataStore {
     const index = this.reservations.findIndex(res => res.id === id);
     if (index === -1) return false;
     this.reservations.splice(index, 1);
+    return true;
+  }
+
+  // 예약 타입 관련 메서드
+  getReservationTypes(): ReservationType[] {
+    return this.reservationTypes;
+  }
+
+  addReservationType(type: Omit<ReservationType, 'id' | 'createdAt'>): ReservationType {
+    const newType: ReservationType = {
+      ...type,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString(),
+    };
+    this.reservationTypes.push(newType);
+    return newType;
+  }
+
+  updateReservationType(id: string, updates: Partial<ReservationType>): ReservationType | null {
+    // 기본 타입 "일반"은 수정 불가
+    if (id === 'default') {
+      return this.reservationTypes.find((t) => t.id === 'default') ?? null;
+    }
+    const index = this.reservationTypes.findIndex((t) => t.id === id);
+    if (index === -1) return null;
+    this.reservationTypes[index] = { ...this.reservationTypes[index], ...updates };
+    return this.reservationTypes[index];
+  }
+
+  deleteReservationType(id: string): boolean {
+    // 기본 타입 "일반"은 삭제 불가
+    if (id === 'default') return false;
+    const index = this.reservationTypes.findIndex((t) => t.id === id);
+    if (index === -1) return false;
+
+    // 해당 타입을 사용 중인 예약들의 reservationTypeId는 남겨두되,
+    // 타입 목록에서만 제거 (과거 데이터 표시용)
+    this.reservationTypes.splice(index, 1);
+    return true;
+  }
+
+  /**
+   * 특정 객실이 주어진 기간 동안 재고 내에서 예약 가능한지 여부를 체크
+   * - 숙박: 체크인 포함, 체크아웃 당일은 제외하는 일반 호텔 룰
+   * - 대실(당일 이용): checkIn과 checkOut 날짜가 같으면 그 날짜 하루를 점유하는 것으로 처리
+   * - 대기/확정 상태의 예약만 재고를 점유한다고 가정
+   */
+  isRoomAvailable(roomId: string, checkIn: string, checkOut: string, excludeReservationId?: string): boolean {
+    const room = this.getRoom(roomId);
+    if (!room) return false;
+
+    const totalInventory = room.inventory;
+    if (totalInventory <= 0) return false;
+
+    const start = new Date(checkIn);
+    const rawEnd = new Date(checkOut);
+
+    // 유효하지 않은 기간이면 예약 불가
+    if (!(start instanceof Date) || isNaN(start.getTime()) || !(rawEnd instanceof Date) || isNaN(rawEnd.getTime())) {
+      return false;
+    }
+
+    // 날짜 단위 비교를 위해 시각 제거
+    const dayStart = new Date(start);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(rawEnd);
+    dayEnd.setHours(0, 0, 0, 0);
+
+    // checkOut 날짜가 checkIn 날짜보다 이전이면 잘못된 입력
+    if (dayEnd < dayStart) return false;
+
+    // 대실: checkIn과 checkOut이 같은 날짜인 경우, 그 날 하루만 점유하도록 dayEnd를 +1일
+    if (dayEnd.getTime() === dayStart.getTime()) {
+      dayEnd.setDate(dayEnd.getDate() + 1);
+    }
+
+    const effectiveStatuses = ['pending', 'confirmed'] as const;
+
+    const reservations = this.reservations.filter((r) => {
+      if (r.roomId !== roomId) return false;
+      if (excludeReservationId && r.id === excludeReservationId) return false;
+      return effectiveStatuses.includes(r.status as (typeof effectiveStatuses)[number]);
+    });
+
+    // 날짜별로 순회하면서 재고 초과 여부 확인
+    for (let d = new Date(dayStart); d < dayEnd; d.setDate(d.getDate() + 1)) {
+      const slotStart = new Date(d);
+      const slotEnd = new Date(slotStart);
+      slotEnd.setDate(slotEnd.getDate() + 1);
+
+      const soldCount = reservations.filter((r) => {
+        const resStart = new Date(r.checkIn);
+        const resEndRaw = new Date(r.checkOut);
+
+        const resDayStart = new Date(resStart);
+        resDayStart.setHours(0, 0, 0, 0);
+        const resDayEnd = new Date(resEndRaw);
+        resDayEnd.setHours(0, 0, 0, 0);
+
+        // 대실 예약: checkIn과 checkOut 날짜가 같으면 하루만 점유
+        if (resDayEnd.getTime() === resDayStart.getTime()) {
+          resDayEnd.setDate(resDayEnd.getDate() + 1);
+        }
+
+        // [resDayStart, resDayEnd) 와 [slotStart, slotEnd) 가 겹치는지 확인
+        return resDayStart < slotEnd && resDayEnd > slotStart;
+      }).length;
+
+      if (soldCount >= totalInventory) {
+        return false;
+      }
+    }
+
     return true;
   }
 

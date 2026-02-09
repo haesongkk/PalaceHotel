@@ -115,6 +115,13 @@ export default function Dashboard() {
               <p className="text-sm text-gray-500 mt-1">예약 확인 및 관리</p>
             </Link>
             <Link
+              href="/inventory"
+              className="bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow"
+            >
+              <h3 className="font-medium text-gray-900">재고 관리</h3>
+              <p className="text-sm text-gray-500 mt-1">달력으로 재고/예약 확인</p>
+            </Link>
+            <Link
               href="/chatbot-messages"
               className="bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow"
             >

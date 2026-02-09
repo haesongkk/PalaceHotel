@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Layout from '@/components/Layout';
-import { Reservation, ReservationStatus, Room } from '@/types';
+import { Reservation, ReservationStatus, Room, ReservationType } from '@/types';
 import ReservationConversationPanel from '@/components/ReservationConversationPanel';
 
 const statusLabels: Record<ReservationStatus, string> = {
@@ -43,6 +43,7 @@ function sortReservations(list: Reservation[]): Reservation[] {
 export default function ReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [reservationTypes, setReservationTypes] = useState<ReservationType[]>([]);
   const [filter, setFilter] = useState<FilterTab>('all');
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [loading, setLoading] = useState(true);
@@ -52,14 +53,21 @@ export default function ReservationsPage() {
 
   const fetchData = async () => {
     try {
-      const [reservationsRes, roomsRes] = await Promise.all([
+      const [reservationsRes, roomsRes, typesRes] = await Promise.all([
         fetch('/api/reservations'),
         fetch('/api/rooms'),
+        fetch('/api/reservation-types'),
       ]);
       const reservationsData: Reservation[] = await reservationsRes.json();
       const roomsData: Room[] = await roomsRes.json();
-      setReservations(reservationsData);
+      const typesData: ReservationType[] = await typesRes.json();
+      // 예약 관리 화면에는 카카오톡으로 들어온 예약만 표시
+      const kakaoReservations = reservationsData.filter(
+        (r) => r.source === 'kakao' || !r.source
+      );
+      setReservations(kakaoReservations);
       setRooms(roomsData);
+      setReservationTypes(typesData);
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {

@@ -7,6 +7,7 @@ const navItems = [
   { href: '/', label: '대시보드' },
   { href: '/rooms', label: '객실 관리' },
   { href: '/reservations', label: '예약 관리' },
+  { href: '/inventory', label: '재고 관리' },
   { href: '/chatbot-messages', label: '챗봇 멘트' },
   { href: '/chat-histories', label: '대화 내역' },
 ];

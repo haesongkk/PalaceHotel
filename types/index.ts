@@ -20,13 +20,22 @@ export interface Room {
   stayCheckOut: string; // 숙박 퇴실시간 (HH:mm)
 }
 
-// 예약 타입
+// 예약 상태
 export type ReservationStatus =
   | 'pending'           // 대기
   | 'confirmed'         // 확정
   | 'rejected'          // 거절
   | 'cancelled_by_guest'  // 고객 취소
   | 'cancelled_by_admin'; // 관리자 취소
+
+// 예약 타입 (관리자 정의)
+export interface ReservationType {
+  id: string;
+  name: string;
+  /** Tailwind 색상 클래스 또는 HEX 등, 뱃지 색상용 */
+  color: string;
+  createdAt: string; // ISO date string
+}
 
 export interface Reservation {
   id: string;
@@ -36,11 +45,17 @@ export interface Reservation {
   guestPhone: string;
   /** 카카오 채널로 들어온 예약인 경우 카카오 사용자 ID (대화 내역 연결용) */
   userId?: string;
+  /** 예약 생성 경로 (지금은 카카오/관리자 수기 정도만 구분) */
+  source?: 'kakao' | 'manual';
+  /** 관리자 정의 예약 타입 ID (수기 예약용). 카톡 예약은 항상 undefined */
+  reservationTypeId?: string;
   checkIn: string; // ISO date string
   checkOut: string; // ISO date string
   status: ReservationStatus;
   totalPrice: number;
   createdAt: string; // ISO date string
+  /** 관리자 메모 (수기 예약용 메모 포함) */
+  adminMemo?: string;
 }
 
 // 임시 예약 정보 타입 (전화번호 입력 대기 중)
