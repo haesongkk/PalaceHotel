@@ -137,7 +137,9 @@ function getDailyInventorySummary(
   reservations: Reservation[],
   date: Date
 ): InventorySummary {
-  const effectiveReservations = getEffectiveReservationsForDate(reservations, date);
+  const effectiveReservations = getEffectiveReservationsForDate(reservations, date).filter(
+    (r) => r.status === 'confirmed'
+  );
 
   const totalInventory = rooms.reduce((sum, room) => sum + (room.inventory ?? 0), 0);
 
@@ -158,9 +160,8 @@ function getRoomDailyUsage(
   reservations: Reservation[],
   date: Date
 ): { sold: number; remaining: number } {
-  const effectiveReservations = getEffectiveReservationsForDate(reservations, date).filter(
-    (r) => r.roomId === room.id
-  );
+  const effectiveReservations = getEffectiveReservationsForDate(reservations, date)
+    .filter((r) => r.roomId === room.id && r.status === 'confirmed');
   const sold = effectiveReservations.length;
   const remaining = Math.max(0, room.inventory - sold);
   return { sold, remaining };

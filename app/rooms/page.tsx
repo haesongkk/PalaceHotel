@@ -2,16 +2,143 @@
 
 import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
-import { Room, DayOfWeek } from '@/types';
+import { Room, DayOfWeek, Reservation, ReservationStatus } from '@/types';
 import RoomModal from '@/components/RoomModal';
 
 const daysOfWeek: DayOfWeek[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
+const EFFECTIVE_STATUSES: ReservationStatus[] = ['confirmed'];
+
+function startOfDay(date: Date): Date {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function getDayOfWeekKey(date: Date): DayOfWeek {
+  const day = date.getDay();
+  if (day === 0) return 'sunday';
+  if (day === 1) return 'monday';
+  if (day === 2) return 'tuesday';
+  if (day === 3) return 'wednesday';
+  if (day === 4) return 'thursday';
+  if (day === 5) return 'friday';
+  if (day === 6) return 'saturday';
+  return 'monday';
+}
+
+function getMonthGrid(currentMonth: Date): Date[] {
+  const firstOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+  const start = new Date(firstOfMonth);
+  const day = start.getDay(); // 0:일 ~ 6:토
+  const diff = day === 0 ? -6 : 1 - day; // 월요일 시작 기준
+  start.setDate(start.getDate() + diff);
+
+  const days: Date[] = [];
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    days.push(d);
+  }
+  return days;
+}
+
+function formatKoreanShort(date: Date): string {
+  return date.toLocaleDateString('ko-KR', {
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+  });
+}
+
+function getDayUsePriceForDate(room: Room, date: Date): number {
+  const key = getDayOfWeekKey(date);
+  return room.prices[key].dayUsePrice;
+}
+
+function getStayPriceForSelection(room: Room, start: Date, end: Date | null): { total: number; nights: number } {
+  const startDay = startOfDay(start);
+  const endDay = end ? startOfDay(end) : startDay;
+
+  let nights = Math.round((endDay.getTime() - startDay.getTime()) / (1000 * 60 * 60 * 24));
+  if (nights <= 0) nights = 1;
+
+  let total = 0;
+  for (let i = 0; i < nights; i++) {
+    const d = new Date(startDay);
+    d.setDate(startDay.getDate() + i);
+    const key = getDayOfWeekKey(d);
+    total += room.prices[key].stayPrice;
+  }
+
+  return { total, nights };
+}
+
+function getSelectionSummaryText(startDate: Date, endDate: Date | null): string {
+  const start = startOfDay(startDate);
+  const end = endDate ? startOfDay(endDate) : start;
+  const isStay = !!endDate && !isSameDay(start, end);
+  const startLabel = formatKoreanShort(start);
+  const endLabel = formatKoreanShort(end);
+  const typeLabel = isStay ? '숙박' : '대실';
+  return `${startLabel} ~ ${endLabel} (${typeLabel})`;
+}
+
+function parseISODate(dateString: string): Date {
+  return startOfDay(new Date(dateString));
+}
+
+function getEffectiveReservationsForDate(
+  reservations: Reservation[],
+  date: Date
+): Reservation[] {
+  const dayStart = startOfDay(date);
+  const dayEnd = new Date(dayStart);
+  dayEnd.setDate(dayEnd.getDate() + 1);
+
+  return reservations.filter((r) => {
+    if (!EFFECTIVE_STATUSES.includes(r.status)) return false;
+    const resStart = parseISODate(r.checkIn);
+    const resEndRaw = parseISODate(r.checkOut);
+    const resEnd = new Date(resEndRaw);
+    // 대실(당일 이용): 체크인/체크아웃 날짜가 같으면 해당 날짜 하루만 점유
+    if (resEnd.getTime() === resStart.getTime()) {
+      resEnd.setDate(resEnd.getDate() + 1);
+    }
+    return resStart < dayEnd && resEnd > dayStart;
+  });
+}
+
+function getRoomDailyUsage(
+  room: Room,
+  reservations: Reservation[],
+  date: Date
+): { sold: number; remaining: number } {
+  const effectiveReservations = getEffectiveReservationsForDate(reservations, date).filter(
+    (r) => r.roomId === room.id
+  );
+  const sold = effectiveReservations.length;
+  const remaining = Math.max(0, room.inventory - sold);
+  return { sold, remaining };
+}
+
 export default function RoomsPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const [selectedStartDate, setSelectedStartDate] = useState<Date>(() => new Date());
+  const [selectedEndDate, setSelectedEndDate] = useState<Date | null>(null);
 
   useEffect(() => {
     fetchRooms();
@@ -19,9 +146,14 @@ export default function RoomsPage() {
 
   const fetchRooms = async () => {
     try {
-      const response = await fetch('/api/rooms');
-      const data = await response.json();
-      setRooms(data);
+      const [roomsRes, reservationsRes] = await Promise.all([
+        fetch('/api/rooms'),
+        fetch('/api/reservations'),
+      ]);
+      const roomsData: Room[] = await roomsRes.json();
+      const reservationsData: Reservation[] = await reservationsRes.json();
+      setRooms(roomsData);
+      setReservations(reservationsData);
     } catch (error) {
       console.error('Failed to fetch rooms:', error);
     } finally {
@@ -64,10 +196,66 @@ export default function RoomsPage() {
     fetchRooms();
   };
 
-  const getRepresentativePrice = (room: Room) => {
-    // 기본값(가정): 대실 최저가를 대표 가격으로 사용
-    const allDayUsePrices = daysOfWeek.map((day) => room.prices[day].dayUsePrice);
-    return Math.min(...allDayUsePrices);
+  const handlePrevMonth = () => {
+    setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  };
+
+  const handleDateClick = (date: Date) => {
+    const clicked = startOfDay(date);
+
+    if (!selectedStartDate || selectedEndDate) {
+      setSelectedStartDate(clicked);
+      setSelectedEndDate(null);
+      return;
+    }
+
+    const start = startOfDay(selectedStartDate);
+    if (isSameDay(clicked, start)) {
+      setSelectedEndDate(null);
+      return;
+    }
+
+    if (clicked < start) {
+      setSelectedStartDate(clicked);
+      setSelectedEndDate(start);
+    } else {
+      setSelectedEndDate(clicked);
+    }
+  };
+
+  const isInSelectedRange = (date: Date) => {
+    const day = startOfDay(date);
+    const start = startOfDay(selectedStartDate);
+
+    if (!selectedEndDate || isSameDay(start, selectedEndDate)) {
+      return isSameDay(day, start);
+    }
+
+    const end = startOfDay(selectedEndDate);
+    const min = Math.min(start.getTime(), end.getTime());
+    const max = Math.max(start.getTime(), end.getTime());
+    const t = day.getTime();
+    return t >= min && t <= max;
+  };
+
+  const getPreviewPrice = (room: Room) => {
+    if (!selectedStartDate) {
+      const allDayUsePrices = daysOfWeek.map((day) => room.prices[day].dayUsePrice);
+      return Math.min(...allDayUsePrices);
+    }
+
+    // 하루 선택 또는 동일 날짜 범위: 대실 가격
+    if (!selectedEndDate || isSameDay(selectedStartDate, selectedEndDate)) {
+      return getDayUsePriceForDate(room, selectedStartDate);
+    }
+
+    // 서로 다른 날짜 범위: 숙박 합계
+    const { total } = getStayPriceForSelection(room, selectedStartDate, selectedEndDate);
+    return total;
   };
 
   const formatWon = (value: number) => `${Math.round(value).toLocaleString()}원`;
@@ -87,7 +275,7 @@ export default function RoomsPage() {
   return (
     <Layout>
       <div className="px-4 py-6 sm:px-0">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-4">
           <h1 className="text-3xl font-bold text-gray-900">객실 관리</h1>
           <button
             onClick={handleAdd}
@@ -100,11 +288,100 @@ export default function RoomsPage() {
           </button>
         </div>
 
+        <div className="mb-6 flex justify-end">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsCalendarOpen((prev) => !prev)}
+              className="inline-flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 hover:bg-gray-50 shadow-sm"
+            >
+              <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V5m8 2V5m-9 4h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span>날짜 선택</span>
+            </button>
+            {isCalendarOpen && (
+              <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-lg z-10 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <button
+                    type="button"
+                    onClick={handlePrevMonth}
+                    className="p-1 rounded-full hover:bg-gray-100 text-gray-600"
+                  >
+                    ‹
+                  </button>
+                  <span className="text-sm font-medium text-gray-900">
+                    {currentMonth.getFullYear()}년 {currentMonth.getMonth() + 1}월
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleNextMonth}
+                    className="p-1 rounded-full hover:bg-gray-100 text-gray-600"
+                  >
+                    ›
+                  </button>
+                </div>
+                <div className="grid grid-cols-7 text-[11px] font-medium text-center text-gray-500 mb-1">
+                  <div>월</div>
+                  <div>화</div>
+                  <div>수</div>
+                  <div>목</div>
+                  <div>금</div>
+                  <div className="text-blue-600">토</div>
+                  <div className="text-red-600">일</div>
+                </div>
+                <div className="grid grid-cols-7 gap-1 text-[11px]">
+                  {getMonthGrid(currentMonth).map((date) => {
+                    const isCurrentMonth =
+                      date.getMonth() === currentMonth.getMonth() &&
+                      date.getFullYear() === currentMonth.getFullYear();
+                    const isToday = isSameDay(startOfDay(date), startOfDay(new Date()));
+                    const inRange = isInSelectedRange(date);
+
+                    const baseClasses =
+                      'border rounded-md px-1.5 py-1 cursor-pointer flex flex-col items-center justify-center transition-colors';
+                    const bg = inRange
+                      ? 'border-blue-500 bg-blue-50'
+                      : isCurrentMonth
+                        ? 'border-gray-200 hover:bg-gray-50'
+                        : 'border-gray-100 bg-gray-50 text-gray-400';
+
+                    return (
+                      <button
+                        type="button"
+                        key={date.toISOString()}
+                        className={`${baseClasses} ${bg}`}
+                        onClick={() => handleDateClick(date)}
+                      >
+                        <span
+                          className={`text-[11px] font-semibold ${
+                            isToday ? 'text-blue-600' : isCurrentMonth ? 'text-gray-800' : 'text-gray-400'
+                          }`}
+                        >
+                          {date.getDate()}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-2 flex justify-start items-center text-[11px] text-gray-600">
+                  <span>{getSelectionSummaryText(selectedStartDate, selectedEndDate)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {rooms.map((room) => {
-            const price = getRepresentativePrice(room);
+            const price = getPreviewPrice(room);
             const rate = clampRate(room.discountRate ?? 0);
             const discountedPrice = rate > 0 ? Math.round(price * (1 - rate / 100)) : price;
+            const { sold, remaining } = getRoomDailyUsage(room, reservations, selectedStartDate);
+            const remainingBadgeClass =
+              remaining > 0
+                ? 'bg-emerald-50 text-emerald-700'
+                : 'bg-red-50 text-red-700';
             return (
               <div
                 key={room.id}
@@ -133,10 +410,27 @@ export default function RoomsPage() {
                 {/* 정보 영역 */}
                 <div className="pt-4">
                   {/* 타이틀(이미지 아래 첫 줄) */}
-                  <div className="px-4 text-base font-semibold text-gray-900">{room.type}</div>
+                  <div className="px-4 text-base font-semibold text-gray-900 flex items-center justify-between gap-2">
+                    <span className="truncate">{room.type}</span>
+                  </div>
+
+                  {/* 재고/판매 배지 */}
+                  <div className="px-4 mt-1 flex items-center gap-2 text-[11px]">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 mr-1.5" />
+                      판매
+                      <span className="ml-1 font-semibold">{sold}</span>
+                    </span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${remainingBadgeClass}`}>
+                      <span className="w-1.5 h-1.5 rounded-full mr-1.5 bg-current opacity-70" />
+                      잔여
+                      <span className="ml-1 font-semibold">{remaining}</span>
+                      <span className="ml-1 text-[10px] opacity-70">(총 {room.inventory})</span>
+                    </span>
+                  </div>
 
                   {/* 가격/할인 */}
-                  <div className="px-4 mt-1 flex items-baseline gap-2">
+                  <div className="px-4 mt-2 flex items-baseline gap-2">
                     <span className="text-2xl font-extrabold text-gray-900">
                       {formatWon(discountedPrice)}
                     </span>
