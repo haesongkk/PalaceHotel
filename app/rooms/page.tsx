@@ -152,18 +152,6 @@ export default function RoomsPage() {
                     )}
                   </div>
 
-                  {room.description && (
-                    <>
-                      {/* 가격-설명 사이 구분선(카톡 카드 스타일) */}
-                      <div className="mt-4 border-t border-gray-200 mx-4" />
-
-                      {/* 설명(가격 아래, 연한 톤) */}
-                      <div className="px-4 mt-3 mb-2 text-sm text-gray-500">
-                        {room.description}
-                      </div>
-                    </>
-                  )}
-
                   {/* 버튼 영역(카톡의 '예약하기' 자리) */}
                   <div className="mt-4 border-t border-gray-200 bg-gray-50 p-3">
                     <div className="grid grid-cols-2 gap-2">

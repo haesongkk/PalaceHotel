@@ -132,7 +132,8 @@ function createRoomItem(room: Room, checkIn: Date, checkOut: Date): KakaoCarouse
 
   return {
     title: room.type,
-    description: room.description,
+    // 현재는 객실 설명 필드를 사용하지 않으므로 빈 문자열 전달
+    description: '',
     price: price,
     currency: 'won',
     discount: discount,

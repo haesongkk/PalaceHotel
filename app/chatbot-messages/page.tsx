@@ -138,7 +138,9 @@ export default function ChatbotMessagesPage() {
       (t) => (t.templtName ?? '').startsWith(prefix) || (displayName === '예약 요청 알림' && t.templtName === '관리자 알림')
     );
     const active = templateHistory[displayName]?.activeTplCode;
-    const activeT = matching.find((x) => x.templtCode === active) ?? matching.find((x) => x.inspStatus === 'APR') ?? matching[0];
+    const activeT = active
+      ? templates.find((x) => x.templtCode === active) ?? matching.find((x) => x.templtCode === active)
+      : matching.find((x) => x.inspStatus === 'APR') ?? matching[0];
     return {
       displayName,
       template: activeT ?? null,

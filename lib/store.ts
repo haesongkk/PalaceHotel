@@ -43,6 +43,7 @@ class DataStore {
       {
         id: '1',
         imageUrl: 'https://picsum.photos/800/600?random=1',
+        inventory: 10,
         type: '스탠다드',
         discountRate: 10,
         prices: defaultPrices,
@@ -50,11 +51,11 @@ class DataStore {
         dayUseCheckOut: '18:00',
         stayCheckIn: '15:00',
         stayCheckOut: '11:00',
-        description: '기본 객실',
       },
       {
         id: '2',
         imageUrl: 'https://picsum.photos/800/600?random=2',
+        inventory: 8,
         type: '디럭스',
         discountRate: 10,
         prices: {
@@ -70,11 +71,11 @@ class DataStore {
         dayUseCheckOut: '18:00',
         stayCheckIn: '15:00',
         stayCheckOut: '11:00',
-        description: '넓은 객실',
       },
       {
         id: '3',
         imageUrl: 'https://picsum.photos/800/600?random=3',
+        inventory: 5,
         type: '스위트',
         discountRate: 10,
         prices: {
@@ -90,7 +91,6 @@ class DataStore {
         dayUseCheckOut: '18:00',
         stayCheckIn: '15:00',
         stayCheckOut: '11:00',
-        description: '프리미엄 스위트',
       },
     ];
 

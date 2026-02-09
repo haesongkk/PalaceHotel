@@ -11,12 +11,13 @@ export interface Room {
   imageUrl?: string; // 대표 이미지 URL
   type: string; // 예: '스탠다드', '디럭스', '스위트'
   discountRate?: number; // 할인율(%) - 없으면 0으로 간주
+  /** 재고(객실 수량) */
+  inventory: number;
   prices: Record<DayOfWeek, DayPrices>; // 요일별 숙박/대실 가격
   dayUseCheckIn: string; // 대실 입실시간 (HH:mm)
   dayUseCheckOut: string; // 대실 퇴실시간 (HH:mm)
   stayCheckIn: string; // 숙박 입실시간 (HH:mm)
   stayCheckOut: string; // 숙박 퇴실시간 (HH:mm)
-  description?: string;
 }
 
 // 예약 타입

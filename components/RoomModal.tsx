@@ -35,12 +35,12 @@ export default function RoomModal({ room, onClose }: RoomModalProps) {
     imageUrl: '',
     type: '',
     discountRate: 0,
+    inventory: 0,
     prices: defaultPrices,
     dayUseCheckIn: '10:00',
     dayUseCheckOut: '18:00',
     stayCheckIn: '15:00',
     stayCheckOut: '11:00',
-    description: '',
   });
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -51,24 +51,24 @@ export default function RoomModal({ room, onClose }: RoomModalProps) {
         imageUrl: room.imageUrl || '',
         type: room.type,
         discountRate: room.discountRate ?? 0,
+        inventory: room.inventory,
         prices: room.prices,
         dayUseCheckIn: room.dayUseCheckIn,
         dayUseCheckOut: room.dayUseCheckOut,
         stayCheckIn: room.stayCheckIn,
         stayCheckOut: room.stayCheckOut,
-        description: room.description || '',
       });
     } else {
       setFormData({
         imageUrl: '',
         type: '',
         discountRate: 0,
+        inventory: 0,
         prices: defaultPrices,
         dayUseCheckIn: '10:00',
         dayUseCheckOut: '18:00',
         stayCheckIn: '15:00',
         stayCheckOut: '11:00',
-        description: '',
       });
     }
   }, [room]);
@@ -133,12 +133,12 @@ export default function RoomModal({ room, onClose }: RoomModalProps) {
       imageUrl: formData.imageUrl || undefined,
       type: formData.type,
       discountRate: Math.min(100, Math.max(0, Number(formData.discountRate) || 0)),
+      inventory: Math.max(0, Number(formData.inventory) || 0),
       prices: formData.prices,
       dayUseCheckIn: formData.dayUseCheckIn,
       dayUseCheckOut: formData.dayUseCheckOut,
       stayCheckIn: formData.stayCheckIn,
       stayCheckOut: formData.stayCheckOut,
-      description: formData.description || undefined,
     };
 
     try {
@@ -288,6 +288,23 @@ export default function RoomModal({ room, onClose }: RoomModalProps) {
               <p className="mt-1 text-xs text-gray-500">0이면 할인 표시가 숨겨집니다.</p>
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700">
+                재고(객실 수)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={formData.inventory}
+                onChange={(e) =>
+                  setFormData({ ...formData, inventory: parseInt(e.target.value) || 0 })
+                }
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="예: 10"
+              />
+              <p className="mt-1 text-xs text-gray-500">보유 객실 수를 입력하세요.</p>
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 입실/퇴실 시간
               </label>
@@ -394,18 +411,6 @@ export default function RoomModal({ room, onClose }: RoomModalProps) {
                   </tbody>
                 </table>
               </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                설명
-              </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={4}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                placeholder="객실에 대한 설명을 입력하세요"
-              />
             </div>
             <div className="flex justify-end space-x-3 pt-4">
               <button

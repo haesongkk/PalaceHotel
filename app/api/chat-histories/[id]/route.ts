@@ -29,4 +29,3 @@ export async function PATCH(
   const updated = dataStore.updateChatHistory(params.id, updates);
   return NextResponse.json(updated);
 }
-
