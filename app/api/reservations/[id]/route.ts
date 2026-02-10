@@ -33,7 +33,9 @@ export async function PUT(
 ) {
   try {
     const body = await request.json();
-    
+    const statusChangeMemo =
+      typeof body.statusChangeMemo === 'string' ? body.statusChangeMemo.trim() : undefined;
+
     // 기존 예약 정보 가져오기 (상태 변경 확인용)
     const existingReservation = dataStore.getReservation(params.id);
     if (!existingReservation) {
@@ -41,10 +43,18 @@ export async function PUT(
     }
 
     const oldStatus = existingReservation.status;
-    const newStatus = body.status as ReservationStatus;
+    const newStatus = body.status as ReservationStatus | undefined;
 
-    // 예약 정보 업데이트
-    const reservation = dataStore.updateReservation(params.id, body);
+    // 예약 정보 업데이트 (허용된 필드만 반영)
+    const updatePayload: Partial<typeof existingReservation> = {};
+    if (newStatus) {
+      updatePayload.status = newStatus;
+    }
+    if (typeof body.guestCancellationConfirmed === 'boolean') {
+      updatePayload.guestCancellationConfirmed = body.guestCancellationConfirmed;
+    }
+
+    const reservation = dataStore.updateReservation(params.id, updatePayload);
     if (!reservation) {
       return NextResponse.json({ error: 'Reservation not found' }, { status: 404 });
     }
@@ -57,6 +67,7 @@ export async function PUT(
     const checkOutTime = room ? (isDayUse ? room.dayUseCheckOut : room.stayCheckOut) : undefined;
 
     if (
+      newStatus &&
       oldStatus === 'pending' &&
       (newStatus === 'confirmed' || newStatus === 'rejected')
     ) {
@@ -71,6 +82,7 @@ export async function PUT(
             totalPrice: newStatus === 'confirmed' ? reservation.totalPrice : undefined,
             checkInTime,
             checkOutTime,
+            memo: newStatus === 'rejected' ? statusChangeMemo : undefined,
           }
         ).catch((error) => {
           console.error(`[알림톡 발송 실패] 예약 ${reservation.id} ${newStatus}`, error);
@@ -85,6 +97,7 @@ export async function PUT(
         checkOut: reservation.checkOut,
         checkInTime,
         checkOutTime,
+        memo: statusChangeMemo,
       }).catch((error) => {
         console.error(`[알림톡 발송 실패] 예약 ${reservation.id} 취소 안내`, error);
       });

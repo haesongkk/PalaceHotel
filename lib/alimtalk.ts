@@ -319,7 +319,7 @@ export async function sendReservationNotificationAlimtalk(reservationId: string)
 /**
  * 예약 확정/거절 알림 (고객에게 알림톡)
  * 템플릿 "예약 확정 안내", "예약 거절 안내"를 이름으로 조회하여 사용
- * 본문 변수: #{roomType}, #{checkIn}, #{checkOut}, #{totalPrice}(확정 시만), #{checkInTime}, #{checkOutTime}
+ * 본문 변수: #{roomType}, #{checkIn}, #{checkOut}, #{totalPrice}(확정 시만), #{checkInTime}, #{checkOutTime}, #{memo}(선택)
  */
 export async function sendReservationStatusAlimtalk(
   phoneNumber: string,
@@ -333,6 +333,8 @@ export async function sendReservationStatusAlimtalk(
     checkInTime?: string;
     /** 퇴실시간 HH:mm (템플릿 변수: #{checkOutTime}) */
     checkOutTime?: string;
+    /** 관리자 메모 (템플릿 변수: #{memo}) */
+    memo?: string;
   }
 ): Promise<SendAlimtalkResult> {
   const templateName = status === 'confirmed' ? DISPLAY_NAME_CONFIRMED : DISPLAY_NAME_REJECTED;
@@ -350,12 +352,14 @@ export async function sendReservationStatusAlimtalk(
   const checkOut = formatDateForAlimtalk(reservationInfo.checkOut);
   const checkInTime = reservationInfo.checkInTime ?? '';
   const checkOutTime = reservationInfo.checkOutTime ?? '';
+  const memo = reservationInfo.memo ?? '';
   let message = content
     .replace(/#{roomType}/g, reservationInfo.roomType)
     .replace(/#{checkIn}/g, checkIn)
     .replace(/#{checkOut}/g, checkOut)
     .replace(/#{checkInTime}/g, checkInTime)
-    .replace(/#{checkOutTime}/g, checkOutTime);
+    .replace(/#{checkOutTime}/g, checkOutTime)
+    .replace(/#{memo}/g, memo);
   if (reservationInfo.totalPrice !== undefined) {
     message = message.replace(/#{totalPrice}/g, reservationInfo.totalPrice.toLocaleString());
   }
@@ -415,6 +419,8 @@ export async function sendReservationCancelledByAdminAlimtalk(
     checkOut: string;
     checkInTime?: string;
     checkOutTime?: string;
+    /** 관리자 메모 (템플릿 변수: #{memo}) */
+    memo?: string;
   }
 ): Promise<SendAlimtalkResult> {
   const tplCode = await getTemplateCodeByDisplayName(DISPLAY_NAME_CANCELLED_BY_ADMIN);
@@ -431,12 +437,14 @@ export async function sendReservationCancelledByAdminAlimtalk(
   const checkOut = formatDateForAlimtalk(reservationInfo.checkOut);
   const checkInTime = reservationInfo.checkInTime ?? '';
   const checkOutTime = reservationInfo.checkOutTime ?? '';
+  const memo = reservationInfo.memo ?? '';
   const message = content
     .replace(/#{roomType}/g, reservationInfo.roomType)
     .replace(/#{checkIn}/g, checkIn)
     .replace(/#{checkOut}/g, checkOut)
     .replace(/#{checkInTime}/g, checkInTime)
-    .replace(/#{checkOutTime}/g, checkOutTime);
+    .replace(/#{checkOutTime}/g, checkOutTime)
+    .replace(/#{memo}/g, memo);
   return sendAlimtalk({
     tpl_code: tplCode,
     receiver: phoneNumber,

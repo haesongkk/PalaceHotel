@@ -71,6 +71,7 @@ export default function ConversationPanel({
   const [editPhone, setEditPhone] = useState('');
   const [editMemo, setEditMemo] = useState('');
   const [saving, setSaving] = useState(false);
+  const [statusChangeMemo, setStatusChangeMemo] = useState('');
 
   const userId =
     source.mode === 'reservation'
@@ -149,11 +150,25 @@ export default function ConversationPanel({
 
   const handleStatusChange = async (newStatus: Reservation['status']) => {
     if (!activeReservation) return;
+    let memoToSend: string | undefined;
+    if (newStatus === 'rejected' || newStatus === 'cancelled_by_admin') {
+      const trimmed = statusChangeMemo.trim();
+      // 패널에서 메모가 비어 있으면 한번 더 확인
+      if (!trimmed) {
+        const confirmNoMemo = window.confirm(
+          `${newStatus === 'rejected' ? '거절' : '취소'} 사유 메모가 비어 있습니다.\n메모 없이 진행하시겠습니까?`,
+        );
+        if (!confirmNoMemo) {
+          return;
+        }
+      }
+      memoToSend = trimmed || undefined;
+    }
     try {
       const res = await fetch(`/api/reservations/${activeReservation.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, statusChangeMemo: memoToSend }),
       });
       if (res.ok) {
         if (source.mode === 'chat-history') {
@@ -306,6 +321,20 @@ export default function ConversationPanel({
               {activeReservation.totalPrice.toLocaleString()}원 ·{' '}
               <span className="font-medium">{statusLabels[activeReservation.status]}</span>
             </p>
+            {(activeReservation.status === 'pending' || activeReservation.status === 'confirmed') && (
+              <div className="mt-2">
+                <label className="block text-xs text-gray-500 mb-0.5">
+                  거절/취소 사유 메모 (알림톡에 포함, 선택)
+                </label>
+                <textarea
+                  value={statusChangeMemo}
+                  onChange={(e) => setStatusChangeMemo(e.target.value)}
+                  rows={2}
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs"
+                  placeholder="예: 고객 요청으로 취소되었습니다."
+                />
+              </div>
+            )}
             <div className="flex flex-wrap gap-2 pt-2">
               {activeReservation.status === 'pending' && (
                 <>

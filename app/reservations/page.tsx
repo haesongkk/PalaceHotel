@@ -74,6 +74,11 @@ export default function ReservationsPage() {
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ message: string } | null>(null);
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [statusModalTargetId, setStatusModalTargetId] = useState<string | null>(null);
+  const [statusModalStatus, setStatusModalStatus] = useState<ReservationStatus | null>(null);
+  const [statusModalMemo, setStatusModalMemo] = useState('');
+  const [statusModalSubmitting, setStatusModalSubmitting] = useState(false);
   const lastPendingIdsRef = useRef<Set<string>>(new Set());
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const searchParams = useSearchParams();
@@ -171,12 +176,12 @@ export default function ReservationsPage() {
     setSelectedReservation(reservation);
   };
 
-  const handleStatusChange = async (id: string, newStatus: ReservationStatus) => {
+  const handleStatusChange = async (id: string, newStatus: ReservationStatus, statusChangeMemo?: string) => {
     try {
       const response = await fetch(`/api/reservations/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, statusChangeMemo }),
       });
       if (response.ok) {
         fetchData();
@@ -185,6 +190,28 @@ export default function ReservationsPage() {
       }
     } catch {
       alert('상태 변경에 실패했습니다.');
+    }
+  };
+
+  const openStatusModal = (id: string, status: ReservationStatus) => {
+    setStatusModalTargetId(id);
+    setStatusModalStatus(status);
+    setStatusModalMemo('');
+    setStatusModalOpen(true);
+  };
+
+  const handleStatusModalConfirm = async () => {
+    if (!statusModalTargetId || !statusModalStatus) return;
+    setStatusModalSubmitting(true);
+    try {
+      const memo = statusModalMemo.trim() || undefined;
+      await handleStatusChange(statusModalTargetId, statusModalStatus, memo);
+      setStatusModalOpen(false);
+      setStatusModalTargetId(null);
+      setStatusModalStatus(null);
+      setStatusModalMemo('');
+    } finally {
+      setStatusModalSubmitting(false);
     }
   };
 
@@ -306,7 +333,7 @@ export default function ReservationsPage() {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleStatusChange(reservation.id, 'confirmed');
+                              handleStatusChange(reservation.id, 'confirmed');
                               }}
                               className="text-sm font-medium text-blue-600 hover:text-blue-800"
                             >
@@ -316,7 +343,7 @@ export default function ReservationsPage() {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleStatusChange(reservation.id, 'rejected');
+                              openStatusModal(reservation.id, 'rejected');
                               }}
                               className="text-sm font-medium text-gray-600 hover:text-gray-800"
                             >
@@ -329,7 +356,7 @@ export default function ReservationsPage() {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleStatusChange(reservation.id, 'cancelled_by_admin');
+                              openStatusModal(reservation.id, 'cancelled_by_admin');
                             }}
                             className="text-sm font-medium text-red-600 hover:text-red-800"
                           >
@@ -377,6 +404,57 @@ export default function ReservationsPage() {
           >
             닫기
           </button>
+        </div>
+      )}
+
+      {statusModalOpen && statusModalStatus && statusModalTargetId && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => {
+              if (!statusModalSubmitting) setStatusModalOpen(false);
+            }}
+          />
+          <div className="relative z-50 w-full max-w-md rounded-lg bg-white shadow-xl p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">
+              {statusModalStatus === 'rejected' ? '예약 거절 사유' : '예약 취소 사유'}
+            </h2>
+            <p className="text-xs text-gray-500 mb-3">
+              입력한 내용은 고객에게 발송되는 알림톡 메시지의 메모 영역에 함께 포함됩니다. 비워두면 메모 없이 발송됩니다.
+            </p>
+            <textarea
+              value={statusModalMemo}
+              onChange={(e) => setStatusModalMemo(e.target.value)}
+              rows={3}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              placeholder="예: 고객 요청으로 예약을 취소하였습니다."
+              disabled={statusModalSubmitting}
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => !statusModalSubmitting && setStatusModalOpen(false)}
+                className="px-4 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                disabled={statusModalSubmitting}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleStatusModalConfirm}
+                className="px-4 py-2 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                disabled={statusModalSubmitting}
+              >
+                {statusModalSubmitting
+                  ? statusModalStatus === 'rejected'
+                    ? '거절 처리 중...'
+                    : '취소 처리 중...'
+                  : statusModalStatus === 'rejected'
+                  ? '거절 확정'
+                  : '취소 확정'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
