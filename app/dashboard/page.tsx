@@ -70,7 +70,7 @@ function KpiRow({ metrics }: { metrics: DashboardMetrics }) {
       label: '오늘 예상 객실 매출',
       value: `₩ ${metrics.todayRevenue.toLocaleString()}`,
     },
-    { label: '노쇼 위험 예약', value: `${metrics.noShowRiskCount}건`, variant: 'warning' },
+    { label: '확인 필요한 예약', value: `${metrics.noShowRiskCount}건`, variant: 'warning' },
   ];
 
   return (
@@ -92,17 +92,63 @@ function TodayReservations({ reservations, rooms, reservationTypes }: TodayReser
   const hasItems = reservations.length > 0;
   const formatStatusLabel = (status: ReservationStatus) => statusLabels[status] ?? status;
 
+  const totalRooms = rooms.reduce((sum, room) => sum + (room.inventory ?? 0), 0);
+  const usedRooms = reservations.length;
+
+  const roomStats = rooms
+    .map((room) => {
+      const sold = reservations.filter((r) => r.roomId === room.id).length;
+      const remaining = (room.inventory ?? 0) - sold;
+      return {
+        room,
+        sold,
+        remaining,
+      };
+    })
+    .filter((stat) => stat.sold > 0 || (stat.room.inventory ?? 0) > 0)
+    .sort((a, b) => {
+      const orderA = a.room.sortOrder ?? Number.MAX_SAFE_INTEGER;
+      const orderB = b.room.sortOrder ?? Number.MAX_SAFE_INTEGER;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.room.type.localeCompare(b.room.type);
+    });
+
   return (
     <div className="rounded-lg bg-white p-4 shadow sm:rounded-lg">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-900">오늘 일정</h2>
-        <Link
-          href="/inventory"
-          className="text-xs font-medium text-blue-600 hover:text-blue-800"
-        >
-          전체 보기
-        </Link>
+      <div className="mb-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-900">오늘 예약 목록</h2>
+        </div>
+        <p className="mt-1 text-[11px] text-gray-500">
+          오늘{' '}
+          <span className="font-semibold text-gray-900">
+            {usedRooms.toLocaleString()}개
+          </span>
+          <span className="mx-0.5 text-gray-400">/</span>
+          <span className="text-gray-600">
+            {totalRooms.toLocaleString()}개
+          </span>{' '}
+          객실 사용 중
+        </p>
       </div>
+      {roomStats.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {roomStats.map(({ room, sold, remaining }) => (
+            <div
+              key={room.id}
+              className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50/80 px-2.5 py-1"
+            >
+              <span className="text-[11px] font-medium text-slate-800">
+                {room.type}
+              </span>
+              <span className="text-[11px] text-slate-400">·</span>
+              <span className="text-[11px] text-slate-600">
+                판매 {sold} / 잔여 {Math.max(0, remaining)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
       {hasItems ? (
         <ul className="space-y-2">
           {reservations.map((reservation) => {
@@ -124,28 +170,27 @@ function TodayReservations({ reservations, rooms, reservationTypes }: TodayReser
               <li key={reservation.id}>
                 <div className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-gray-50/80">
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium text-gray-900 truncate">
-                        {guestName}
+                    <p className="text-sm font-medium text-gray-900 truncate flex items-center gap-1.5">
+                      <span className="truncate text-gray-900">
+                        {room?.type ?? '객실 정보 없음'}
                       </span>
                       {reservation.source === 'kakao' && (
-                        <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-sky-50 text-sky-700">
+                        <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-sky-50 text-sky-700">
                           카톡
                         </span>
                       )}
-                      {isManual && (
+                      {isManual && type && (
                         <span
-                          className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                            type?.color ?? 'bg-gray-100 text-gray-700'
+                          className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                            type.color ?? 'bg-gray-100 text-gray-700'
                           }`}
                         >
-                          {type?.name ?? '수기'}
+                          {type.name ?? '수기'}
                         </span>
                       )}
-                    </div>
-                    <p className="mt-0.5 text-xs text-gray-500 truncate">
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-gray-500 truncate">
                       {[
-                        room?.type ?? '객실 정보 없음',
                         dateRange,
                         reservation.guestPhone,
                         reservation.adminMemo,
@@ -155,7 +200,7 @@ function TodayReservations({ reservations, rooms, reservationTypes }: TodayReser
                     </p>
                   </div>
                   <span
-                    className={`shrink-0 inline-flex px-2 py-0.5 rounded-md text-[10px] font-medium ${statusColors[reservation.status]}`}
+                    className={`shrink-0 inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium ${statusColors[reservation.status]}`}
                   >
                     {formatStatusLabel(reservation.status)}
                   </span>
@@ -374,6 +419,11 @@ function calculateMetrics(reservations: Reservation[], rooms: Room[]): Dashboard
     .filter((r) => isSameDay(r.checkIn, today))
     .reduce((sum, r) => sum + (r.totalPrice ?? 0), 0);
 
+  const pendingCount = reservations.filter((r) => r.status === 'pending').length;
+  const unconfirmedGuestCancels = reservations.filter(
+    (r) => r.status === 'cancelled_by_guest' && !r.guestCancellationConfirmed,
+  ).length;
+
   return {
     todayCheckins,
     todayCheckouts,
@@ -381,7 +431,7 @@ function calculateMetrics(reservations: Reservation[], rooms: Room[]): Dashboard
     todayNewReservations,
     todayCancellations,
     todayRevenue,
-    noShowRiskCount: 0,
+    noShowRiskCount: pendingCount + unconfirmedGuestCancels,
   };
 }
 
@@ -431,32 +481,29 @@ function DashboardPage() {
           </p>
         </header>
 
-        {/* 상단: KPI + 오늘 일정 */}
+        {/* 상단: KPI + 오늘 예약 목록 / 빠른 링크 */}
         <section className="space-y-4">
           {isReady ? (
             <>
               <KpiRow metrics={metrics} />
-              <TodayReservations
-                reservations={todayReservations}
-                rooms={rooms}
-                reservationTypes={reservationTypes}
-              />
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                <div className="lg:col-span-2">
+                  <TodayReservations
+                    reservations={todayReservations}
+                    rooms={rooms}
+                    reservationTypes={reservationTypes}
+                  />
+                </div>
+                <div>
+                  <QuickLinksCard />
+                </div>
+              </div>
             </>
           ) : (
             <div className="rounded-lg bg-white p-6 text-center text-sm text-gray-500 shadow">
               대시보드 데이터를 불러오는 중입니다...
             </div>
           )}
-        </section>
-
-        {/* 오늘 일정 밑: 지금 확인해야 할 내역 + 빠른 링크 */}
-        <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <TodoAlertsCard />
-          </div>
-          <div>
-            <QuickLinksCard />
-          </div>
         </section>
 
         {/* 통계/차트 영역 */}
