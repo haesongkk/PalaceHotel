@@ -11,6 +11,7 @@ import {
   formatStayLabel,
 } from '@/lib/reservation-utils';
 import type { Reservation, ReservationStatus, Room, DayOfWeek, ReservationType, RoomInventoryAdjustment } from '@/types';
+import { getDailyRoomAdjustedInventory } from '@/lib/inventory-utils';
 import ReservationConversationPanel from '@/components/ReservationConversationPanel';
 
 type InventorySummary = {
@@ -283,6 +284,36 @@ export default function InventoryPage() {
     setCurrentMonth(
       (prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1)
     );
+  };
+
+  const selectedDateKey = selectedDate ? toDateKey(selectedDate) : '';
+
+  const handleChangeDelta = async (room: Room, sold: number, nextDelta: number) => {
+    const nextAdjusted = getDailyRoomAdjustedInventory(room, nextDelta);
+    if (nextAdjusted < sold) {
+      alert('이미 판매된 수량보다 적게 설정할 수 없습니다.');
+      return;
+    }
+    try {
+      const res = await fetch('/api/inventory-adjustments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId: room.id, date: selectedDateKey, delta: nextDelta }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error ?? '재고 조정 저장에 실패했습니다. 잠시 후 다시 시도해주세요.');
+        return;
+      }
+      setInventoryAdjustments((prev) => {
+        const others = prev.filter((item) => !(item.roomId === room.id && item.date === selectedDateKey));
+        if (nextDelta === 0) return others;
+        return [...others, { roomId: room.id, date: selectedDateKey, delta: nextDelta }];
+      });
+    } catch (error) {
+      console.error('Failed to save inventory adjustment:', error);
+      alert('재고 조정 저장에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    }
   };
 
   const selectedDateReservations = useMemo(() => {
@@ -723,27 +754,55 @@ export default function InventoryPage() {
 
               {selectedDate && (
                 <>
-                  <div className="space-y-2 mb-4">
-                    {selectedDateRoomUsages.map(({ room, sold, remaining }) => (
-                      <div
-                        key={room.id}
-                        className="flex items-center justify-between text-sm"
-                      >
-                        <div className="text-gray-800 font-medium">{room.type}</div>
-                        <div className="text-gray-600">
-                          판매{' '}
-                          <span className="font-semibold">{sold}</span>
-                          <span className="mx-1 text-gray-400">/</span>
-                          잔여{' '}
-                          <span className="font-semibold">{remaining}</span>
-                          <span className="ml-1 text-xs text-gray-400">
-                            (총 {room.inventory})
-                          </span>
+                  <div className="space-y-3 mb-4">
+                    {selectedDateRoomUsages.map(({ room, sold, remaining }) => {
+                      const delta = remaining + sold - (room.inventory ?? 0);
+                      return (
+                        <div
+                          key={room.id}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-2"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium text-gray-800">{room.type}</div>
+                            <div className="text-[11px] text-gray-500 mt-0.5">
+                              기본 {room.inventory ?? 0}개 · 판매 {sold}개
+                            </div>
+                          </div>
+                          <div className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2 py-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (remaining <= 0) return;
+                                const nextRemaining = remaining - 1;
+                                const nextAdjusted = nextRemaining + sold;
+                                const nextDelta = nextAdjusted - (room.inventory ?? 0);
+                                void handleChangeDelta(room, sold, nextDelta);
+                              }}
+                              className="flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold text-gray-700 hover:bg-gray-100"
+                            >
+                              −
+                            </button>
+                            <span className="min-w-[72px] text-center text-[11px] text-gray-800">
+                              잔여 {remaining}개
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const nextRemaining = remaining + 1;
+                                const nextAdjusted = nextRemaining + sold;
+                                const nextDelta = nextAdjusted - (room.inventory ?? 0);
+                                void handleChangeDelta(room, sold, nextDelta);
+                              }}
+                              className="flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold text-gray-700 hover:bg-gray-100"
+                            >
+                              +
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     {rooms.length === 0 && (
-                      <div className="text-sm text-gray-500">등록된 객실이 없습니다.</div>
+                      <div className="text-sm text-gray-500 py-2">등록된 객실이 없습니다.</div>
                     )}
                   </div>
 
