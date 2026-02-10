@@ -186,6 +186,11 @@ export default function InventoryPage() {
   const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
 
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [statusModalTargetId, setStatusModalTargetId] = useState<string | null>(null);
+  const [statusModalStatus, setStatusModalStatus] = useState<ReservationStatus | null>(null);
+  const [statusModalMemo, setStatusModalMemo] = useState('');
+  const [statusModalSubmitting, setStatusModalSubmitting] = useState(false);
   const [inventoryAdjustments, setInventoryAdjustments] = useState<RoomInventoryAdjustment[]>([]);
 
   const totalPendingReservations = useMemo(
@@ -383,13 +388,17 @@ export default function InventoryPage() {
 
   const formatStatusLabel = (status: ReservationStatus) => statusLabels[status] ?? status;
 
-  const handleStatusChange = async (id: string, newStatus: ReservationStatus) => {
+  const handleStatusChange = async (
+    id: string,
+    newStatus: ReservationStatus,
+    statusChangeMemo?: string,
+  ) => {
     setActionLoadingId(id + ':' + newStatus);
     try {
       const res = await fetch(`/api/reservations/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, statusChangeMemo }),
       });
       if (!res.ok) {
         alert('상태 변경에 실패했습니다.');
@@ -401,6 +410,28 @@ export default function InventoryPage() {
       alert('상태 변경에 실패했습니다.');
     } finally {
       setActionLoadingId(null);
+    }
+  };
+
+  const openStatusModal = (id: string, status: ReservationStatus) => {
+    setStatusModalTargetId(id);
+    setStatusModalStatus(status);
+    setStatusModalMemo('');
+    setStatusModalOpen(true);
+  };
+
+  const handleStatusModalConfirm = async () => {
+    if (!statusModalTargetId || !statusModalStatus) return;
+    setStatusModalSubmitting(true);
+    try {
+      const memo = statusModalMemo.trim() || undefined;
+      await handleStatusChange(statusModalTargetId, statusModalStatus, memo);
+      setStatusModalOpen(false);
+      setStatusModalTargetId(null);
+      setStatusModalStatus(null);
+      setStatusModalMemo('');
+    } finally {
+      setStatusModalSubmitting(false);
     }
   };
 
@@ -895,7 +926,7 @@ export default function InventoryPage() {
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => handleStatusChange(reservation.id, 'rejected')}
+                                      onClick={() => openStatusModal(reservation.id, 'rejected')}
                                       disabled={actionLoadingId !== null}
                                       className="px-1.5 py-0.5 rounded bg-gray-200 text-gray-700 text-[10px] hover:bg-gray-300 disabled:opacity-50"
                                     >
@@ -906,13 +937,11 @@ export default function InventoryPage() {
                                 {reservation.source === 'kakao' && reservation.status === 'confirmed' && (
                                   <button
                                     type="button"
-                                    onClick={() =>
-                                      handleStatusChange(reservation.id, 'cancelled_by_admin')
-                                    }
+                                    onClick={() => openStatusModal(reservation.id, 'cancelled_by_admin')}
                                     disabled={actionLoadingId !== null}
                                     className="px-1.5 py-0.5 rounded bg-red-600 text-white text-[10px] hover:bg-red-700 disabled:opacity-50"
                                   >
-                                    관리자 취소
+                                    취소
                                   </button>
                                 )}
                                 {isManual && (
@@ -1149,6 +1178,68 @@ export default function InventoryPage() {
             onStatusChange={fetchData}
           />
         </>
+      )}
+      {statusModalOpen && statusModalStatus && statusModalTargetId && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => {
+              if (!statusModalSubmitting) {
+                setStatusModalOpen(false);
+                setStatusModalTargetId(null);
+                setStatusModalStatus(null);
+                setStatusModalMemo('');
+              }
+            }}
+          />
+          <div className="relative z-50 w-full max-w-md rounded-lg bg-white shadow-xl p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">
+              {statusModalStatus === 'rejected' ? '예약 거절 사유' : '예약 취소 사유'}
+            </h2>
+            <p className="text-xs text-gray-500 mb-3">
+              입력한 내용은 고객에게 발송되는 알림톡 메시지의 메모 영역에 함께 포함됩니다. 비워두면 메모 없이 발송됩니다.
+            </p>
+            <textarea
+              value={statusModalMemo}
+              onChange={(e) => setStatusModalMemo(e.target.value)}
+              rows={3}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              placeholder="예: 고객 요청으로 예약을 취소하였습니다."
+              disabled={statusModalSubmitting}
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!statusModalSubmitting) {
+                    setStatusModalOpen(false);
+                    setStatusModalTargetId(null);
+                    setStatusModalStatus(null);
+                    setStatusModalMemo('');
+                  }
+                }}
+                className="px-4 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                disabled={statusModalSubmitting}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleStatusModalConfirm}
+                className="px-4 py-2 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                disabled={statusModalSubmitting}
+              >
+                {statusModalSubmitting
+                  ? statusModalStatus === 'rejected'
+                    ? '거절 처리 중...'
+                    : '취소 처리 중...'
+                  : statusModalStatus === 'rejected'
+                  ? '거절 확정'
+                  : '취소 확정'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </Layout>
   );

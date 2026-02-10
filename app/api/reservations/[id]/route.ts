@@ -53,6 +53,12 @@ export async function PUT(
     if (typeof body.guestCancellationConfirmed === 'boolean') {
       updatePayload.guestCancellationConfirmed = body.guestCancellationConfirmed;
     }
+    if (body.adminMemo !== undefined) {
+      updatePayload.adminMemo =
+        typeof body.adminMemo === 'string' && body.adminMemo.trim() !== ''
+          ? body.adminMemo.trim()
+          : undefined;
+    }
 
     const reservation = dataStore.updateReservation(params.id, updatePayload);
     if (!reservation) {

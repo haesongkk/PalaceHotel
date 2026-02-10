@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Reservation, ChatHistory, ChatMessage, Room } from '@/types';
 import ChatSendPanel from '@/components/ChatSendPanel';
+import { formatStayLabel } from '@/lib/reservation-utils';
 
 const RESERVATION_WINDOW_MINUTES = 30;
 const statusLabels: Record<Reservation['status'], string> = {
@@ -11,6 +12,14 @@ const statusLabels: Record<Reservation['status'], string> = {
   rejected: '거절',
   cancelled_by_guest: '고객 취소',
   cancelled_by_admin: '관리자 취소',
+};
+
+const statusColors: Record<Reservation['status'], string> = {
+  pending: 'bg-yellow-100 text-yellow-800',
+  confirmed: 'bg-blue-100 text-blue-800',
+  rejected: 'bg-orange-100 text-orange-800',
+  cancelled_by_guest: 'bg-red-100 text-red-800',
+  cancelled_by_admin: 'bg-red-100 text-red-800',
 };
 
 function getMessagePreview(message: ChatMessage): string {
@@ -72,6 +81,11 @@ export default function ConversationPanel({
   const [editMemo, setEditMemo] = useState('');
   const [saving, setSaving] = useState(false);
   const [statusChangeMemo, setStatusChangeMemo] = useState('');
+  const [adminMemoEdit, setAdminMemoEdit] = useState('');
+  const [savingAdminMemo, setSavingAdminMemo] = useState(false);
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [statusDialogStatus, setStatusDialogStatus] = useState<Reservation['status'] | null>(null);
+  const [statusDialogSubmitting, setStatusDialogSubmitting] = useState(false);
 
   const userId =
     source.mode === 'reservation'
@@ -124,6 +138,13 @@ export default function ConversationPanel({
 
   const messages = history?.messages ?? [];
   const activeReservation = source.mode === 'reservation' ? source.reservation : reservation;
+
+  // 예약 모드: 예약 관련 메모 동기화 (activeReservation 선언 이후에 배치)
+  useEffect(() => {
+    if (source.mode === 'reservation' && activeReservation) {
+      setAdminMemoEdit(activeReservation.adminMemo ?? '');
+    }
+  }, [source.mode, activeReservation?.id, activeReservation?.adminMemo]);
   const filteredMessages =
     activeReservation && !showAllMessages
       ? filterMessagesByReservation(messages, activeReservation.createdAt)
@@ -131,37 +152,37 @@ export default function ConversationPanel({
   const hasFilteredDifference = messages.length !== filteredMessages.length && messages.length > 0;
 
   const room = activeReservation ? rooms.find((r) => r.id === activeReservation.roomId) : null;
-  const displayName = history?.userName?.trim() || (userId && userId.length > 8 ? userId.slice(0, 8) : userId) || '-';
-  const phone = history?.userPhone?.trim() || '-';
-  const phoneForAlimtalk = phone === '-' ? null : phone;
+  const displayName = history?.userName?.trim() || (userId && userId.length > 8 ? userId.slice(0, 8) : userId) || '';
+  const phone = history?.userPhone?.trim() || '';
+  const phoneForAlimtalk = phone || null;
   // 예약 모드에서 history 없을 때 상단에는 예약 쪽 이름/번호 표시
-  const topName = source.mode === 'reservation' && activeReservation && !history ? activeReservation.guestName : displayName;
-  const topPhone = source.mode === 'reservation' && activeReservation && !history ? activeReservation.guestPhone : (phone === '-' ? '전화번호 없음' : phone);
+  const rawTopName =
+    source.mode === 'reservation' && activeReservation && !history ? (activeReservation.guestName ?? '') : displayName;
+  const rawTopPhone =
+    source.mode === 'reservation' && activeReservation && !history ? (activeReservation.guestPhone ?? '') : phone;
   const topMemo = history?.memo?.trim() ?? '';
+
+  const customerInfoParts = [
+    rawTopName?.trim() || '',
+    rawTopPhone?.trim() || '',
+    topMemo,
+  ].filter((v) => v && v.trim().length > 0);
+  const customerInfoLabel = customerInfoParts.length > 0 ? customerInfoParts.join(' · ') : '고객 정보 없음';
 
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleString('ko-KR', {
       year: 'numeric',
-      month: 'short',
+      month: 'long',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
     });
 
-  const handleStatusChange = async (newStatus: Reservation['status']) => {
+  const handleStatusChange = async (newStatus: Reservation['status'], memo?: string) => {
     if (!activeReservation) return;
-    let memoToSend: string | undefined;
-    if (newStatus === 'rejected' || newStatus === 'cancelled_by_admin') {
-      const trimmed = statusChangeMemo.trim();
-      // 패널에서 메모가 비어 있으면 한번 더 확인
-      if (!trimmed) {
-        const confirmNoMemo = window.confirm(
-          `${newStatus === 'rejected' ? '거절' : '취소'} 사유 메모가 비어 있습니다.\n메모 없이 진행하시겠습니까?`,
-        );
-        if (!confirmNoMemo) {
-          return;
-        }
-      }
+    let memoToSend: string | undefined = memo;
+    if ((newStatus === 'rejected' || newStatus === 'cancelled_by_admin') && typeof memoToSend === 'string') {
+      const trimmed = memoToSend.trim();
       memoToSend = trimmed || undefined;
     }
     try {
@@ -182,6 +203,20 @@ export default function ConversationPanel({
       }
     } catch {
       alert('상태 변경에 실패했습니다.');
+    }
+  };
+
+  const handleStatusDialogConfirm = async () => {
+    if (!statusDialogStatus) return;
+    setStatusDialogSubmitting(true);
+    try {
+      const memo = statusChangeMemo.trim() || undefined;
+      await handleStatusChange(statusDialogStatus, memo);
+      setStatusDialogOpen(false);
+      setStatusDialogStatus(null);
+      setStatusChangeMemo('');
+    } finally {
+      setStatusDialogSubmitting(false);
     }
   };
 
@@ -224,14 +259,51 @@ export default function ConversationPanel({
     }
   };
 
+  const handleSaveAdminMemo = async () => {
+    if (!activeReservation) return;
+    setSavingAdminMemo(true);
+    try {
+      const res = await fetch(`/api/reservations/${activeReservation.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminMemo: adminMemoEdit.trim() || undefined }),
+      });
+      if (res.ok) {
+        onStatusChange?.();
+      } else {
+        alert('예약 메모 저장에 실패했습니다.');
+      }
+    } catch {
+      alert('예약 메모 저장에 실패했습니다.');
+    } finally {
+      setSavingAdminMemo(false);
+    }
+  };
+
+  const handleDeleteReservation = async () => {
+    if (!activeReservation) return;
+    if (!window.confirm('이 예약을 삭제하시겠습니까?')) return;
+    try {
+      const res = await fetch(`/api/reservations/${activeReservation.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        onStatusChange?.();
+        onClose();
+      } else {
+        alert('삭제에 실패했습니다.');
+      }
+    } catch {
+      alert('삭제에 실패했습니다.');
+    }
+  };
+
   return (
-    <div className="fixed inset-y-0 right-0 w-full max-w-lg bg-white shadow-xl z-40 flex flex-col">
-      <div className="flex items-center justify-between p-4 border-b bg-gray-50">
-        <h3 className="text-lg font-semibold text-gray-900">대화 및 예약</h3>
+    <div className="fixed inset-y-0 right-0 w-full max-w-lg bg-slate-50 shadow-2xl z-40 flex flex-col border-l border-gray-200/80">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200/80 bg-white">
+        <h3 className="text-lg font-semibold text-slate-800">대화 및 예약</h3>
         <button
           type="button"
           onClick={onClose}
-          className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-200"
+          className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
           aria-label="닫기"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -240,53 +312,53 @@ export default function ConversationPanel({
         </button>
       </div>
 
-      {/* 상단: 이름(번호):고객 메모 통일, 둘 다 수정 가능 / 예약 관리만 예약 요약 + 버튼 */}
-      <div className="p-4 border-b space-y-2 bg-white">
+      {/* 상단: 이름(번호):고객 메모 → 예약 요약 + 버튼/메모 */}
+      <div className="p-4 border-b border-gray-100 space-y-4 bg-gray-50/50">
         {/* 1. 이름(번호):고객 메모 + 수정 (공통) */}
         {(history || (source.mode === 'reservation' && activeReservation)) ? (
           <>
             {!editing ? (
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium text-gray-900 whitespace-pre-wrap break-words">
-                  {topName}({topPhone}):{topMemo}
+              <div className="flex items-center justify-between gap-2 rounded-lg bg-white/80 px-3 py-2 border border-gray-200/80">
+                <p className="text-sm font-medium text-gray-800 whitespace-pre-wrap break-words">
+                  {customerInfoLabel}
                 </p>
                 {history && (
                   <button
                     type="button"
                     onClick={() => setEditing(true)}
-                    className="text-sm text-blue-600 hover:text-blue-800 font-medium shrink-0"
+                    className="text-sm font-medium text-blue-600 hover:text-blue-700 shrink-0"
                   >
                     수정
                   </button>
                 )}
               </div>
             ) : (
-              <>
+              <div className="rounded-xl bg-white border border-gray-200/80 shadow-sm p-3 space-y-2">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-0.5">이름</label>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">이름</label>
                   <input
                     type="text"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-0.5">전화번호</label>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">전화번호</label>
                   <input
                     type="text"
                     value={editPhone}
                     onChange={(e) => setEditPhone(e.target.value)}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-0.5">고객 메모</label>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">고객 메모</label>
                   <textarea
                     value={editMemo}
                     onChange={(e) => setEditMemo(e.target.value)}
                     rows={2}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 outline-none resize-none"
                   />
                 </div>
                 <div className="flex gap-2 pt-1">
@@ -294,77 +366,122 @@ export default function ConversationPanel({
                     type="button"
                     onClick={handleSaveProfile}
                     disabled={saving || !history}
-                    className="px-2 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                    className="px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
                   >
                     {saving ? '저장 중…' : '저장'}
                   </button>
                   <button
                     type="button"
                     onClick={() => { setEditing(false); setEditName(history?.userName ?? ''); setEditPhone(history?.userPhone ?? ''); setEditMemo(history?.memo ?? ''); }}
-                    className="px-2 py-1.5 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                    className="px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200"
                   >
                     취소
                   </button>
                 </div>
-              </>
+              </div>
             )}
           </>
         ) : null}
 
-        {/* 2. 예약 관리에서만: 예약 요약 + 확정/거절/취소 */}
+        {/* 2. 예약 관리에서만: 예약 요약 + 예약 메모 + 수기면 삭제만, 아니면 확정/거절/취소 */}
         {activeReservation && source.mode === 'reservation' && (
-          <>
-            <p className="text-sm text-gray-600">
-              {room?.type ?? '객실'} · {formatDate(activeReservation.checkIn)} ~ {formatDate(activeReservation.checkOut)}
-            </p>
-            <p className="text-sm text-gray-600">
-              {activeReservation.totalPrice.toLocaleString()}원 ·{' '}
-              <span className="font-medium">{statusLabels[activeReservation.status]}</span>
-            </p>
-            {(activeReservation.status === 'pending' || activeReservation.status === 'confirmed') && (
-              <div className="mt-2">
-                <label className="block text-xs text-gray-500 mb-0.5">
-                  거절/취소 사유 메모 (알림톡에 포함, 선택)
-                </label>
+          <div className="rounded-xl bg-white border border-gray-200/80 shadow-sm p-3 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="flex-1 min-w-0 text-sm text-slate-700 truncate">
+                <span className="text-gray-600">
+                  {room ? room.type : '객실 정보 없음'}
+                </span>
+                <span className="text-gray-400"> · </span>
+                <span className="text-gray-600">
+                  {formatStayLabel(activeReservation.checkIn, activeReservation.checkOut)}
+                </span>
+                {activeReservation.guestPhone && (
+                  <>
+                    <span className="text-gray-400"> · </span>
+                    <span className="text-gray-600">{activeReservation.guestPhone}</span>
+                  </>
+                )}
+                <span className="text-gray-400"> · </span>
+                <span className="font-semibold text-slate-900">
+                  {activeReservation.totalPrice.toLocaleString()}원
+                </span>
+              </p>
+              <span
+                className={`shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[activeReservation.status]}`}
+              >
+                {statusLabels[activeReservation.status]}
+              </span>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">예약 관련 메모</label>
+              <div className="flex items-stretch gap-2">
                 <textarea
-                  value={statusChangeMemo}
-                  onChange={(e) => setStatusChangeMemo(e.target.value)}
+                  value={adminMemoEdit}
+                  onChange={(e) => setAdminMemoEdit(e.target.value)}
                   rows={2}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs"
-                  placeholder="예: 고객 요청으로 취소되었습니다."
+                  className="flex-1 min-w-0 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 outline-none transition-colors resize-none"
+                  placeholder="예약에 대한 메모 (내부용)"
                 />
-              </div>
-            )}
-            <div className="flex flex-wrap gap-2 pt-2">
-              {activeReservation.status === 'pending' && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => handleStatusChange('confirmed')}
-                    className="px-3 py-1.5 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700"
-                  >
-                    확정
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleStatusChange('rejected')}
-                    className="px-3 py-1.5 text-sm font-medium rounded-md bg-gray-600 text-white hover:bg-gray-700"
-                  >
-                    거절
-                  </button>
-                </>
-              )}
-              {activeReservation.status === 'confirmed' && (
                 <button
                   type="button"
-                  onClick={() => handleStatusChange('cancelled_by_admin')}
-                  className="px-3 py-1.5 text-sm font-medium rounded-md bg-red-600 text-white hover:bg-red-700"
+                  onClick={handleSaveAdminMemo}
+                  disabled={savingAdminMemo}
+                  className="shrink-0 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 disabled:pointer-events-none transition-colors"
                 >
-                  취소
+                  {savingAdminMemo ? '저장 중…' : '저장'}
                 </button>
-              )}
+              </div>
             </div>
-          </>
+            {activeReservation.source === 'manual' ? (
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleDeleteReservation}
+                  className="px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+                >
+                  삭제
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {activeReservation.status === 'pending' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleStatusChange('confirmed')}
+                      className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                    >
+                      확정
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStatusChangeMemo('');
+                        setStatusDialogStatus('rejected');
+                        setStatusDialogOpen(true);
+                      }}
+                      className="px-4 py-2 text-sm font-medium rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+                    >
+                      거절
+                    </button>
+                  </>
+                )}
+                {activeReservation.status === 'confirmed' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStatusChangeMemo('');
+                      setStatusDialogStatus('cancelled_by_admin');
+                      setStatusDialogOpen(true);
+                    }}
+                    className="px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+                  >
+                    취소
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -416,6 +533,65 @@ export default function ConversationPanel({
           </>
         )}
       </div>
+
+      {statusDialogOpen && statusDialogStatus && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => {
+              if (!statusDialogSubmitting) {
+                setStatusDialogOpen(false);
+                setStatusDialogStatus(null);
+              }
+            }}
+          />
+          <div className="relative z-10 w-full max-w-sm rounded-xl bg-white shadow-xl p-5">
+            <h2 className="text-base font-semibold text-gray-900 mb-1.5">
+              {statusDialogStatus === 'rejected' ? '예약 거절 사유' : '예약 취소 사유'}
+            </h2>
+            <p className="text-xs text-gray-500 mb-3">
+              입력한 내용은 고객에게 발송되는 알림톡 메시지의 메모 영역에 포함됩니다. 비워두면 메모 없이 발송됩니다.
+            </p>
+            <textarea
+              value={statusChangeMemo}
+              onChange={(e) => setStatusChangeMemo(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 outline-none resize-none"
+              placeholder="예: 고객 요청으로 예약을 취소하였습니다."
+              disabled={statusDialogSubmitting}
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!statusDialogSubmitting) {
+                    setStatusDialogOpen(false);
+                    setStatusDialogStatus(null);
+                  }
+                }}
+                className="px-4 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                disabled={statusDialogSubmitting}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleStatusDialogConfirm}
+                className="px-4 py-2 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                disabled={statusDialogSubmitting}
+              >
+                {statusDialogSubmitting
+                  ? statusDialogStatus === 'rejected'
+                    ? '거절 처리 중...'
+                    : '취소 처리 중...'
+                  : statusDialogStatus === 'rejected'
+                  ? '거절 확정'
+                  : '취소 확정'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ChatSendPanel
         userId={userId}
