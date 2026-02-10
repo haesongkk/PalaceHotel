@@ -450,7 +450,7 @@ export default function RoomsPage() {
                   draggingRoomId === room.id ? 'ring-2 ring-blue-400 ring-offset-2' : ''
                 }`}
               >
-                {/* 이미지 영역 */}
+                {/* 이미지 영역 + 재고/판매 배지 오버레이 */}
                 <div className="relative h-44 overflow-hidden bg-gray-100">
                   {room.imageUrl ? (
                     <img
@@ -468,6 +468,23 @@ export default function RoomsPage() {
                       </svg>
                     </div>
                   )}
+
+                  {/* 판매/잔여 배지 - 이미지 위 좌측 상단 */}
+                  <div className="absolute top-2 left-2 flex flex-col gap-1 text-[11px]">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-black/40 text-white backdrop-blur">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white/80 mr-1.5" />
+                      판매
+                      <span className="ml-1 font-semibold">{sold}</span>
+                    </span>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full backdrop-blur ${remainingBadgeClass}`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full mr-1.5 bg-current opacity-70" />
+                      잔여
+                      <span className="ml-1 font-semibold">{remaining}</span>
+                      <span className="ml-1 text-[10px] opacity-70">(총 {room.inventory})</span>
+                    </span>
+                  </div>
                 </div>
 
                 {/* 정보 영역 */}
@@ -475,21 +492,6 @@ export default function RoomsPage() {
                   {/* 타이틀(이미지 아래 첫 줄) */}
                   <div className="px-4 text-base font-semibold text-gray-900 flex items-center justify-between gap-2">
                     <span className="truncate">{room.type}</span>
-                  </div>
-
-                  {/* 재고/판매 배지 */}
-                  <div className="px-4 mt-1 flex items-center gap-2 text-[11px]">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
-                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 mr-1.5" />
-                      판매
-                      <span className="ml-1 font-semibold">{sold}</span>
-                    </span>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${remainingBadgeClass}`}>
-                      <span className="w-1.5 h-1.5 rounded-full mr-1.5 bg-current opacity-70" />
-                      잔여
-                      <span className="ml-1 font-semibold">{remaining}</span>
-                      <span className="ml-1 text-[10px] opacity-70">(총 {room.inventory})</span>
-                    </span>
                   </div>
 
                   {/* 가격/할인 */}

@@ -10,6 +10,7 @@ import {
   toDateKey,
 } from '@/lib/reservation-utils';
 import type { Reservation, ReservationStatus, Room, DayOfWeek, ReservationType } from '@/types';
+import ReservationConversationPanel from '@/components/ReservationConversationPanel';
 
 type InventorySummary = {
   dateKey: string;
@@ -149,6 +150,7 @@ export default function InventoryPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [reservationTypes, setReservationTypes] = useState<ReservationType[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
 
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
@@ -493,6 +495,11 @@ export default function InventoryPage() {
     }
   };
 
+  const handleReservationClick = (reservation: Reservation, e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    setSelectedReservation(reservation);
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -509,7 +516,7 @@ export default function InventoryPage() {
     <Layout>
       <div className="px-4 py-6 sm:px-0">
         <div className="mb-6 flex items-center justify-between gap-3">
-          <h1 className="text-3xl font-bold text-gray-900">재고 관리</h1>
+          <h1 className="text-3xl font-bold text-gray-900">예약 현황</h1>
           <span
             className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${
               totalPendingReservations > 0
@@ -721,6 +728,18 @@ export default function InventoryPage() {
                             className={`border border-gray-200 rounded-md px-3 py-2 text-xs ${
                               reservation.status === 'pending' ? 'bg-amber-50' : 'bg-gray-50'
                             }`}
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => handleReservationClick(reservation, e)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                handleReservationClick(
+                                  reservation,
+                                  e as unknown as React.MouseEvent<HTMLDivElement>,
+                                );
+                              }
+                            }}
                           >
                             <div className="flex items-center justify-between mb-1">
                               <div className="flex items-center gap-1.5">
@@ -1010,6 +1029,24 @@ export default function InventoryPage() {
           </div>
         </div>
       </div>
+      {selectedReservation && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/30 z-30"
+            onClick={() => setSelectedReservation(null)}
+            onKeyDown={(e) => e.key === 'Escape' && setSelectedReservation(null)}
+            role="button"
+            tabIndex={0}
+            aria-label="대화 패널 닫기"
+          />
+          <ReservationConversationPanel
+            reservation={selectedReservation}
+            rooms={rooms}
+            onClose={() => setSelectedReservation(null)}
+            onStatusChange={fetchData}
+          />
+        </>
+      )}
     </Layout>
   );
 }
