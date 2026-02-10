@@ -94,11 +94,8 @@ export default function ReservationsPage() {
       const reservationsData: Reservation[] = await reservationsRes.json();
       const roomsData: Room[] = await roomsRes.json();
       const typesData: ReservationType[] = await typesRes.json();
-      // 예약 관리 화면에는 카카오톡으로 들어온 예약만 표시
-      const kakaoReservations = reservationsData.filter(
-        (r) => r.source === 'kakao' || !r.source
-      );
-      setReservations(kakaoReservations);
+      // 모든 예약을 표시 (카카오 + 수기 예약 등)
+      setReservations(reservationsData);
       setRooms(roomsData);
       setReservationTypes(typesData);
     } catch (error) {
@@ -170,6 +167,9 @@ export default function ReservationsPage() {
   }, []);
 
   const getRoomInfo = (roomId: string) => rooms.find((r) => r.id === roomId);
+
+  const getReservationType = (reservationTypeId?: string) =>
+    reservationTypeId ? reservationTypes.find((t) => t.id === reservationTypeId) : undefined;
 
   const handleRowClick = (reservation: Reservation, e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
@@ -283,6 +283,12 @@ export default function ReservationsPage() {
                 reservation.status === 'pending' ||
                 (reservation.status === 'cancelled_by_guest' &&
                   !reservation.guestCancellationConfirmed);
+
+              const isManual = reservation.source === 'manual';
+              const reservationType = isManual
+                ? getReservationType(reservation.reservationTypeId)
+                : undefined;
+
               return (
                 <li key={reservation.id}>
                   <div
@@ -305,29 +311,50 @@ export default function ReservationsPage() {
                           {isImportant && (
                             <span className="inline-flex h-2 w-2 rounded-full bg-amber-400" />
                           )}
-                          <p className="text-sm font-medium text-gray-900 truncate">
-                            {reservation.guestName} ({reservation.guestPhone})
+                          <p className="text-sm text-gray-900 truncate">
+                            <span className="text-gray-500">
+                              {room ? room.type : '객실 정보 없음'}
+                            </span>
+                            <span className="text-gray-400"> · </span>
+                            <span className="text-gray-500">
+                              {formatDate(reservation.checkIn)} ~ {formatDate(reservation.checkOut)}
+                            </span>
+                            {reservation.guestPhone && (
+                              <>
+                                <span className="text-gray-400"> · </span>
+                                <span className="text-gray-500">{reservation.guestPhone}</span>
+                              </>
+                            )}
+                            <span className="text-gray-400"> · </span>
+                            <span className="font-medium">
+                              {reservation.totalPrice.toLocaleString()}원
+                            </span>
                           </p>
                           <span
                             className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColors[reservation.status]}`}
                           >
                             {statusLabels[reservation.status]}
                           </span>
-                        </div>
-                        <div className="mt-2 text-sm text-gray-500">
-                          <span>{room ? room.type : '객실 정보 없음'}</span>
-                          <span className="mx-2">·</span>
-                          <span>
-                            {formatDate(reservation.checkIn)} ~ {formatDate(reservation.checkOut)}
-                          </span>
-                          <span className="mx-2">·</span>
-                          <span className="font-medium text-gray-900">
-                            {reservation.totalPrice.toLocaleString()}원
-                          </span>
+                          {reservation.source === 'kakao' && (
+                            <span
+                              className="shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-sky-700"
+                            >
+                              카톡
+                            </span>
+                          )}
+                          {isManual && (
+                            <span
+                              className={`shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                reservationType?.color ?? 'bg-gray-100 text-gray-700'
+                              }`}
+                            >
+                              {reservationType?.name ?? '수기'}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 ml-2 shrink-0">
-                        {reservation.status === 'pending' && (
+                        {!isManual && reservation.status === 'pending' && (
                           <>
                             <button
                               type="button"
@@ -351,7 +378,7 @@ export default function ReservationsPage() {
                             </button>
                           </>
                         )}
-                        {reservation.status === 'confirmed' && (
+                        {!isManual && reservation.status === 'confirmed' && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -363,7 +390,8 @@ export default function ReservationsPage() {
                             취소
                           </button>
                         )}
-                        {reservation.status === 'cancelled_by_guest' &&
+                        {!isManual &&
+                          reservation.status === 'cancelled_by_guest' &&
                           !reservation.guestCancellationConfirmed && (
                             <button
                               type="button"
