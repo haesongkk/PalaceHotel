@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Layout from '@/components/Layout';
 import { Reservation, ReservationStatus, Room, ReservationType } from '@/types';
 import ReservationConversationPanel from '@/components/ReservationConversationPanel';
@@ -75,6 +76,8 @@ export default function ReservationsPage() {
   const [toast, setToast] = useState<{ message: string } | null>(null);
   const lastPendingIdsRef = useRef<Set<string>>(new Set());
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const searchParams = useSearchParams();
+  const initialSelectionHandledRef = useRef(false);
 
   const fetchData = async () => {
     try {
@@ -103,6 +106,17 @@ export default function ReservationsPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (loading || reservations.length === 0 || initialSelectionHandledRef.current) return;
+    const targetId = searchParams.get('reservationId');
+    if (!targetId) return;
+    const target = reservations.find((r) => r.id === targetId);
+    if (target) {
+      setSelectedReservation(target);
+      initialSelectionHandledRef.current = true;
+    }
+  }, [loading, reservations, searchParams]);
 
   useEffect(() => {
     if (loading) return;

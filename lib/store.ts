@@ -30,13 +30,13 @@ class DataStore {
   private initializeSampleData() {
     // 기본 요일별 가격 템플릿
     const defaultPrices = {
-      monday: { stayPrice: 100000, dayUsePrice: 50000 },
-      tuesday: { stayPrice: 100000, dayUsePrice: 50000 },
-      wednesday: { stayPrice: 100000, dayUsePrice: 50000 },
-      thursday: { stayPrice: 120000, dayUsePrice: 60000 },
-      friday: { stayPrice: 150000, dayUsePrice: 70000 },
-      saturday: { stayPrice: 180000, dayUsePrice: 80000 },
-      sunday: { stayPrice: 150000, dayUsePrice: 70000 },
+      monday: { stayPrice: 30000, dayUsePrice: 30000 },
+      tuesday: { stayPrice: 30000, dayUsePrice: 30000 },
+      wednesday: { stayPrice: 30000, dayUsePrice: 30000 },
+      thursday: { stayPrice: 30000, dayUsePrice: 30000 },
+      friday: { stayPrice: 30000, dayUsePrice: 30000 },
+      saturday: { stayPrice: 30000, dayUsePrice: 30000 },
+      sunday: { stayPrice: 30000, dayUsePrice: 30000 },
     };
 
     // 샘플 객실 데이터 (짧은 이미지 URL 사용)
@@ -45,7 +45,7 @@ class DataStore {
         id: '1',
         imageUrl: 'https://picsum.photos/800/600?random=1',
         inventory: 10,
-        type: '스탠다드',
+        type: '올나잇대실',
         discountRate: 10,
         prices: defaultPrices,
         dayUseCheckIn: '10:00',
@@ -57,16 +57,16 @@ class DataStore {
         id: '2',
         imageUrl: 'https://picsum.photos/800/600?random=2',
         inventory: 8,
-        type: '디럭스',
+        type: '2PC게임',
         discountRate: 10,
         prices: {
-          monday: { stayPrice: 150000, dayUsePrice: 70000 },
-          tuesday: { stayPrice: 150000, dayUsePrice: 70000 },
-          wednesday: { stayPrice: 150000, dayUsePrice: 70000 },
-          thursday: { stayPrice: 170000, dayUsePrice: 80000 },
-          friday: { stayPrice: 200000, dayUsePrice: 90000 },
-          saturday: { stayPrice: 230000, dayUsePrice: 100000 },
-          sunday: { stayPrice: 200000, dayUsePrice: 90000 },
+          monday: { stayPrice: 60000, dayUsePrice: 30000 },
+          tuesday: { stayPrice: 60000, dayUsePrice: 30000 },
+          wednesday: { stayPrice: 60000, dayUsePrice: 30000 },
+          thursday: { stayPrice: 60000, dayUsePrice: 30000 },
+          friday: { stayPrice: 70000, dayUsePrice: 40000 },
+          saturday: { stayPrice: 80000, dayUsePrice: 50000 },
+          sunday: { stayPrice: 90000, dayUsePrice: 60000 },
         },
         dayUseCheckIn: '10:00',
         dayUseCheckOut: '18:00',
@@ -77,16 +77,36 @@ class DataStore {
         id: '3',
         imageUrl: 'https://picsum.photos/800/600?random=3',
         inventory: 5,
-        type: '스위트',
+        type: '디럭스',
         discountRate: 10,
         prices: {
-          monday: { stayPrice: 250000, dayUsePrice: 120000 },
-          tuesday: { stayPrice: 250000, dayUsePrice: 120000 },
-          wednesday: { stayPrice: 250000, dayUsePrice: 120000 },
-          thursday: { stayPrice: 270000, dayUsePrice: 130000 },
-          friday: { stayPrice: 300000, dayUsePrice: 140000 },
-          saturday: { stayPrice: 330000, dayUsePrice: 150000 },
-          sunday: { stayPrice: 300000, dayUsePrice: 140000 },
+          monday: { stayPrice: 35000, dayUsePrice: 20000 },
+          tuesday: { stayPrice: 35000, dayUsePrice: 20000 },
+          wednesday: { stayPrice: 35000, dayUsePrice: 20000 },
+          thursday: { stayPrice: 35000, dayUsePrice: 20000 },
+          friday: { stayPrice: 45000, dayUsePrice: 30000 },
+          saturday: { stayPrice: 55000, dayUsePrice: 40000 },
+          sunday: { stayPrice: 65000, dayUsePrice: 50000 },
+        },
+        dayUseCheckIn: '10:00',
+        dayUseCheckOut: '18:00',
+        stayCheckIn: '15:00',
+        stayCheckOut: '11:00',
+      },
+      {
+        id: '4',
+        imageUrl: 'https://picsum.photos/800/600?random=4',
+        inventory: 8,
+        type: '도보특가',
+        discountRate: 10,
+        prices: {
+          monday: { stayPrice: 60000, dayUsePrice: 30000 },
+          tuesday: { stayPrice: 60000, dayUsePrice: 30000 },
+          wednesday: { stayPrice: 60000, dayUsePrice: 30000 },
+          thursday: { stayPrice: 60000, dayUsePrice: 30000 },
+          friday: { stayPrice: 70000, dayUsePrice: 40000 },
+          saturday: { stayPrice: 80000, dayUsePrice: 50000 },
+          sunday: { stayPrice: 90000, dayUsePrice: 60000 },
         },
         dayUseCheckIn: '10:00',
         dayUseCheckOut: '18:00',
@@ -106,8 +126,8 @@ class DataStore {
       },
     ];
 
-    // 예약 데이터는 빈 배열로 시작 (실제 예약은 카카오 채널/API로 추가됨)
-    this.reservations = [];
+    // 예약 데이터: 2월 수기 예약 더미 데이터
+    this.reservations = this.buildFebruaryDummyReservations();
 
     // 샘플 챗봇 멘트 데이터 (10가지 상황 모두 초기화)
     const situations: ChatbotSituation[] = [
@@ -127,7 +147,7 @@ class DataStore {
       today_day_use: '오늘 대실 가능한 객실을 안내해드리겠습니다.',
       today_stay: '오늘 숙박 가능한 객실을 안내해드리겠습니다.',
       saturday_reservation: '토요일 예약 가능한 객실을 안내해드리겠습니다.',
-      make_reservation: '예약을 진행하시겠습니까? 원하시는 날짜와 인원수를 알려주세요.',
+      make_reservation: '예약을 진행하시겠습니까? 원하시는 날짜를 알려주세요.',
       phone_input_request: '예약을 완료하기 위해 전화번호를 입력해주세요.\n형식: 010-1234-5678',
       reservation_request: '예약 요청이 접수되었습니다. 확인 후 연락드리겠습니다.',
       reservation_inquiry: '예약 내역을 조회해드리겠습니다.',
@@ -145,6 +165,81 @@ class DataStore {
 
     // chatHistories는 이미 빈 배열로 선언되어 있으므로 초기화하지 않음
     // 실제 대화 내역은 addMessageToHistory()를 통해 추가됨
+  }
+
+  private buildFebruaryDummyReservations(): Reservation[] {
+    const year = new Date().getFullYear();
+    const toISO = (y: number, m: number, d: number) =>
+      new Date(y, m - 1, d, 12, 0, 0).toISOString();
+
+    type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+    const getDayKey = (date: Date): DayOfWeek => {
+      const map: DayOfWeek[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      return map[date.getDay()];
+    };
+
+    const calcPrice = (room: Room, checkIn: string, checkOut: string): number => {
+      const start = new Date(checkIn);
+      const end = new Date(checkOut);
+      let total = 0;
+      for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+        const key = getDayKey(d);
+        total += room.prices[key]?.stayPrice ?? 30000;
+      }
+      return total || 30000;
+    };
+
+    // [year, MMDD] 형태 - 201=2/1, 228=2/28, 301=3/1
+    const dummySpecs: Array<{ roomId: string; checkIn: [number, number]; checkOut: [number, number]; memo?: string }> = [
+      { roomId: '1', checkIn: [year, 201], checkOut: [year, 202],  memo: '전화 예약' },
+      { roomId: '2', checkIn: [year, 203], checkOut: [year, 205],  memo: 'OTA 예약' },
+      { roomId: '3', checkIn: [year, 205], checkOut: [year, 207], },
+      { roomId: '4', checkIn: [year, 207], checkOut: [year, 208],  memo: '단체 할인' },
+      { roomId: '1', checkIn: [year, 208], checkOut: [year, 210], },
+      { roomId: '2', checkIn: [year, 210], checkOut: [year, 212],  memo: '회원 할인' },
+      { roomId: '3', checkIn: [year, 212], checkOut: [year, 214], },
+      { roomId: '4', checkIn: [year, 214], checkOut: [year, 216],  memo: '전화 예약' },
+      { roomId: '1', checkIn: [year, 215], checkOut: [year, 216], },
+      { roomId: '2', checkIn: [year, 217], checkOut: [year, 219],  memo: '대실' },
+      { roomId: '3', checkIn: [year, 218], checkOut: [year, 220], },
+      { roomId: '4', checkIn: [year, 220], checkOut: [year, 222],  memo: 'OTA 예약' },
+      { roomId: '1', checkIn: [year, 221], checkOut: [year, 223], },
+      { roomId: '2', checkIn: [year, 223], checkOut: [year, 225],  memo: '주말 예약' },
+      { roomId: '3', checkIn: [year, 225], checkOut: [year, 227], },
+      { roomId: '4', checkIn: [year, 227], checkOut: [year, 228],  memo: '전화 예약' },
+      { roomId: '1', checkIn: [year, 228], checkOut: [year, 301], },
+    ];
+
+    const base = Date.now();
+    const list: Reservation[] = [];
+    for (let i = 0; i < dummySpecs.length; i++) {
+      const s = dummySpecs[i];
+      const [y, mdIn] = s.checkIn;
+      const [_, mdOut] = s.checkOut;
+      const mIn = Math.floor(mdIn / 100);
+      const dIn = mdIn % 100;
+      const mOut = Math.floor(mdOut / 100);
+      const dOut = mdOut % 100;
+      const checkIn = toISO(y, mIn, dIn);
+      const checkOut = toISO(y, mOut, dOut);
+      const room = this.rooms.find((r) => r.id === s.roomId);
+      const totalPrice = room ? calcPrice(room, checkIn, checkOut) : 50000;
+      list.push({
+        id: `dummy-feb-${i + 1}-${base}`,
+        roomId: s.roomId,
+        guestName: '',
+        guestPhone: '',
+        checkIn,
+        checkOut,
+        status: 'confirmed',
+        totalPrice,
+        source: 'manual',
+        reservationTypeId: 'default',
+        adminMemo: s.memo,
+        createdAt: toISO(y, 1, 1),
+      });
+    }
+    return list;
   }
 
   // 객실 관련 메서드

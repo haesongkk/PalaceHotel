@@ -2,6 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/Layout';
+import {
+  EFFECTIVE_STATUSES,
+  getEffectiveReservationsForDate,
+  parseISODate,
+  startOfDay,
+  toDateKey,
+} from '@/lib/reservation-utils';
 import type { Reservation, ReservationStatus, Room, DayOfWeek, ReservationType } from '@/types';
 
 type InventorySummary = {
@@ -27,8 +34,6 @@ const statusColors: Record<ReservationStatus, string> = {
   cancelled_by_admin: 'bg-red-100 text-red-800',
 };
 
-const EFFECTIVE_STATUSES: ReservationStatus[] = ['pending', 'confirmed'];
-
 const PRESET_TYPE_COLORS: { label: string; className: string }[] = [
   // 기본 직관적 색 이름 (일반 타입의 연회색은 제외)
   { label: '초록', className: 'bg-emerald-100 text-emerald-800' },
@@ -42,21 +47,6 @@ const PRESET_TYPE_COLORS: { label: string; className: string }[] = [
   { label: '남보라', className: 'bg-indigo-100 text-indigo-800' },
   { label: '진회색', className: 'bg-zinc-100 text-zinc-800' },
 ];
-
-function startOfDay(date: Date): Date {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function toDateKey(date: Date): string {
-  return startOfDay(date).toISOString().slice(0, 10);
-}
-
-function parseISODate(dateString: string): Date {
-  // date-only 문자열도 들어올 수 있으므로 Date 생성만 공통으로 처리
-  return startOfDay(new Date(dateString));
-}
 
 function getDayOfWeekKey(date: Date): DayOfWeek {
   const day = date.getDay();
@@ -108,27 +98,6 @@ function formatKoreanDate(date: Date): string {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
-  });
-}
-
-function getEffectiveReservationsForDate(
-  reservations: Reservation[],
-  date: Date
-): Reservation[] {
-  const dayStart = startOfDay(date);
-  const dayEnd = new Date(dayStart);
-  dayEnd.setDate(dayEnd.getDate() + 1);
-
-  return reservations.filter((r) => {
-    if (!EFFECTIVE_STATUSES.includes(r.status)) return false;
-    const resStart = parseISODate(r.checkIn);
-    const resEndRaw = parseISODate(r.checkOut);
-    const resEnd = new Date(resEndRaw);
-    // 대실(당일 이용): 체크인/체크아웃 날짜가 같으면 해당 날짜 하루만 점유
-    if (resEnd.getTime() === resStart.getTime()) {
-      resEnd.setDate(resEnd.getDate() + 1);
-    }
-    return resStart < dayEnd && resEnd > dayStart;
   });
 }
 
