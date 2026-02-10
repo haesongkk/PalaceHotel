@@ -8,6 +8,7 @@ import {
   parseISODate,
   startOfDay,
   toDateKey,
+  formatStayLabel,
 } from '@/lib/reservation-utils';
 import type { Reservation, ReservationStatus, Room, DayOfWeek, ReservationType } from '@/types';
 import ReservationConversationPanel from '@/components/ReservationConversationPanel';
@@ -785,15 +786,7 @@ export default function InventoryPage() {
                             )}
                             <div className="mt-1 flex items-center justify-between">
                               <div className="text-gray-500">
-                                {new Date(reservation.checkIn).toLocaleDateString('ko-KR', {
-                                  month: 'numeric',
-                                  day: 'numeric',
-                                })}{' '}
-                                ~{' '}
-                                {new Date(reservation.checkOut).toLocaleDateString('ko-KR', {
-                                  month: 'numeric',
-                                  day: 'numeric',
-                                })}
+                                {formatStayLabel(reservation.checkIn, reservation.checkOut)}
                               </div>
                               <div className="flex items-center gap-1">
                                 {reservation.status === 'pending' && (

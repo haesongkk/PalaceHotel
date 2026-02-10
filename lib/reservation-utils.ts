@@ -20,6 +20,53 @@ export function toDateKey(date: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+function toYmd(dateInput: string | Date): { year: number; month: number; day: number; weekday: number } {
+  const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  const year = d.getFullYear();
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  const weekday = d.getDay(); // 0 (일) ~ 6 (토)
+  return { year, month, day, weekday };
+}
+
+function calcNights(checkIn: string | Date, checkOut: string | Date): number {
+  const start = startOfDay(typeof checkIn === 'string' ? new Date(checkIn) : checkIn);
+  const end = startOfDay(typeof checkOut === 'string' ? new Date(checkOut) : checkOut);
+  const diffMs = end.getTime() - start.getTime();
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  return diffDays > 0 ? diffDays : 0;
+}
+
+const WEEKDAY_LABELS: string[] = ['일', '월', '화', '수', '목', '금', '토'];
+
+function formatMonthDayWithWeekday(dateInput: string | Date): string {
+  const { month, day, weekday } = toYmd(dateInput);
+  const label = WEEKDAY_LABELS[weekday] ?? '';
+  return `${month}. ${day} (${label})`;
+}
+
+/**
+ * 예약 기간 표시용 공통 포맷
+ * - 같은 날짜(대실): "2. 11 (수) · 대실"
+ * - 1박: "2. 11 (수) ~ 2. 12 (목) · 1박"
+ * - 2박 이상: "2. 3 (월) ~ 2. 5 (수) · 2박"
+ */
+export function formatStayLabel(checkIn: string | Date, checkOut: string | Date): string {
+  const nights = calcNights(checkIn, checkOut);
+  const startLabel = formatMonthDayWithWeekday(checkIn);
+  const endLabel = formatMonthDayWithWeekday(checkOut);
+
+  if (nights === 0) {
+    return `${startLabel} · 대실`;
+  }
+
+  if (nights === 1) {
+    return `${startLabel} ~ ${endLabel} · 1박`;
+  }
+
+  return `${startLabel} ~ ${endLabel} · ${nights}박`;
+}
+
 /**
  * 특정 날짜에 머무는 예약 목록 반환 (재고 관리·대시보드 공통)
  * - pending, confirmed 상태만 포함

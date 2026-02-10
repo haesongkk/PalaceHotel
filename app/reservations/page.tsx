@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Layout from '@/components/Layout';
+import { formatStayLabel } from '@/lib/reservation-utils';
 import { Reservation, ReservationStatus, Room, ReservationType } from '@/types';
 import ReservationConversationPanel from '@/components/ReservationConversationPanel';
 
@@ -71,6 +72,7 @@ export default function ReservationsPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [reservationTypes, setReservationTypes] = useState<ReservationType[]>([]);
   const [filter, setFilter] = useState<FilterTab>('all');
+  const [kakaoOnly, setKakaoOnly] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ message: string } | null>(null);
@@ -232,15 +234,11 @@ export default function ReservationsPage() {
     }
   };
 
-  const formatDate = (dateString: string) =>
-    new Date(dateString).toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-
-  const filtered =
+  const filteredByStatus =
     filter === 'all' ? reservations : reservations.filter((r) => r.status === filter);
+  const filtered = kakaoOnly
+    ? filteredByStatus.filter((r) => r.source === 'kakao')
+    : filteredByStatus;
   const sorted = sortReservations(filtered, filter);
 
   if (loading) {
@@ -258,21 +256,32 @@ export default function ReservationsPage() {
       <div className="px-4 py-6 sm:px-0">
         <h1 className="text-3xl font-bold text-gray-900 mb-6">예약 관리</h1>
 
-        <div className="flex flex-wrap gap-2 mb-4">
-          {FILTER_TABS.map(({ key, label }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setFilter(key)}
-              className={`px-3 py-1.5 text-sm font-medium rounded-full ${
-                filter === key
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div className="flex flex-wrap gap-2">
+            {FILTER_TABS.map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setFilter(key)}
+                className={`px-3 py-1.5 text-sm font-medium rounded-full ${
+                  filter === key
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <label className="inline-flex items-center gap-1.5 text-xs text-gray-600">
+            <input
+              type="checkbox"
+              className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              checked={kakaoOnly}
+              onChange={(e) => setKakaoOnly(e.target.checked)}
+            />
+            <span>카톡 예약만 보기</span>
+          </label>
         </div>
 
         <div className="bg-white shadow overflow-hidden sm:rounded-md">
@@ -283,11 +292,6 @@ export default function ReservationsPage() {
                 reservation.status === 'pending' ||
                 (reservation.status === 'cancelled_by_guest' &&
                   !reservation.guestCancellationConfirmed);
-
-              const isManual = reservation.source === 'manual';
-              const reservationType = isManual
-                ? getReservationType(reservation.reservationTypeId)
-                : undefined;
 
               return (
                 <li key={reservation.id}>
@@ -317,7 +321,7 @@ export default function ReservationsPage() {
                             </span>
                             <span className="text-gray-400"> · </span>
                             <span className="text-gray-500">
-                              {formatDate(reservation.checkIn)} ~ {formatDate(reservation.checkOut)}
+                              {formatStayLabel(reservation.checkIn, reservation.checkOut)}
                             </span>
                             {reservation.guestPhone && (
                               <>
@@ -335,26 +339,10 @@ export default function ReservationsPage() {
                           >
                             {statusLabels[reservation.status]}
                           </span>
-                          {reservation.source === 'kakao' && (
-                            <span
-                              className="shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-sky-700"
-                            >
-                              카톡
-                            </span>
-                          )}
-                          {isManual && (
-                            <span
-                              className={`shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                reservationType?.color ?? 'bg-gray-100 text-gray-700'
-                              }`}
-                            >
-                              {reservationType?.name ?? '수기'}
-                            </span>
-                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 ml-2 shrink-0">
-                        {!isManual && reservation.status === 'pending' && (
+                        {reservation.source !== 'manual' && reservation.status === 'pending' && (
                           <>
                             <button
                               type="button"
@@ -378,7 +366,7 @@ export default function ReservationsPage() {
                             </button>
                           </>
                         )}
-                        {!isManual && reservation.status === 'confirmed' && (
+                        {reservation.source !== 'manual' && reservation.status === 'confirmed' && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -390,7 +378,7 @@ export default function ReservationsPage() {
                             취소
                           </button>
                         )}
-                        {!isManual &&
+                        {reservation.source !== 'manual' &&
                           reservation.status === 'cancelled_by_guest' &&
                           !reservation.guestCancellationConfirmed && (
                             <button

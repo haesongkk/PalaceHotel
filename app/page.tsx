@@ -18,7 +18,7 @@ import {
   YAxis,
 } from 'recharts';
 import Layout from '@/components/Layout';
-import { getEffectiveReservationsForDate } from '@/lib/reservation-utils';
+import { getEffectiveReservationsForDate, formatStayLabel } from '@/lib/reservation-utils';
 import type { Reservation, ReservationStatus, ReservationType, Room } from '@/types';
 
 const statusLabels: Record<ReservationStatus, string> = {
@@ -195,13 +195,7 @@ function TodayReservations({ reservations, rooms, reservationTypes }: TodayReser
               : null;
             const guestName =
               reservation.guestName || (isManual ? '관리자 수기 예약' : '고객');
-            const dateRange = `${new Date(reservation.checkIn).toLocaleDateString('ko-KR', {
-              month: 'short',
-              day: 'numeric',
-            })} ~ ${new Date(reservation.checkOut).toLocaleDateString('ko-KR', {
-              month: 'short',
-              day: 'numeric',
-            })}`;
+            const stayLabel = formatStayLabel(reservation.checkIn, reservation.checkOut);
             return (
               <li key={reservation.id}>
                 <div className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-gray-50/80">
@@ -227,7 +221,7 @@ function TodayReservations({ reservations, rooms, reservationTypes }: TodayReser
                     </p>
                     <p className="mt-0.5 text-[11px] text-gray-500 truncate">
                       {[
-                        dateRange,
+                        stayLabel,
                         reservation.guestPhone,
                         reservation.adminMemo,
                       ]
