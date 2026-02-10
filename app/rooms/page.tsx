@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/Layout';
-import { Room, DayOfWeek, Reservation, ReservationStatus } from '@/types';
+import { Room, DayOfWeek, Reservation, ReservationStatus, RoomInventoryAdjustment } from '@/types';
 import RoomModal from '@/components/RoomModal';
+import { getDailyRoomAdjustedInventory, getDailyRoomRemaining, getDailyRoomSoldCount } from '@/lib/inventory-utils';
 
 const daysOfWeek: DayOfWeek[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
@@ -118,10 +119,10 @@ function getRoomDailyUsage(
   reservations: Reservation[],
   date: Date
 ): { sold: number; remaining: number } {
-  const effectiveReservations = getEffectiveReservationsForDate(reservations, date).filter(
-    (r) => r.roomId === room.id
-  );
-  const sold = effectiveReservations.length;
+  const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+    date.getDate(),
+  ).padStart(2, '0')}`;
+  const sold = getDailyRoomSoldCount(reservations, room.id, dateKey);
   const remaining = Math.max(0, room.inventory - sold);
   return { sold, remaining };
 }
@@ -140,6 +141,7 @@ export default function RoomsPage() {
   const [selectedStartDate, setSelectedStartDate] = useState<Date>(() => new Date());
   const [selectedEndDate, setSelectedEndDate] = useState<Date | null>(null);
   const [draggingRoomId, setDraggingRoomId] = useState<string | null>(null);
+  const [inventoryAdjustments, setInventoryAdjustments] = useState<RoomInventoryAdjustment[]>([]);
 
   useEffect(() => {
     fetchRooms();
@@ -161,6 +163,40 @@ export default function RoomsPage() {
       setLoading(false);
     }
   };
+
+  const selectedDateKey = useMemo(() => {
+    const d = startOfDay(selectedStartDate);
+    const y = d.getFullYear();
+    const m = `${d.getMonth() + 1}`.padStart(2, '0');
+    const day = `${d.getDate()}`.padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }, [selectedStartDate]);
+
+  const adjustmentByRoomId = useMemo(() => {
+    const map = new Map<string, number>();
+    inventoryAdjustments.forEach((item) => {
+      if (item.date === selectedDateKey) {
+        map.set(item.roomId, item.delta);
+      }
+    });
+    return map;
+  }, [inventoryAdjustments, selectedDateKey]);
+
+  const fetchInventoryAdjustments = async (dateKey: string) => {
+    try {
+      const res = await fetch(`/api/inventory-adjustments?date=${encodeURIComponent(dateKey)}`);
+      if (!res.ok) return;
+      const json: { items?: RoomInventoryAdjustment[] } = await res.json();
+      setInventoryAdjustments(json.items ?? []);
+    } catch (error) {
+      console.error('Failed to fetch inventory adjustments:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (loading) return;
+    void fetchInventoryAdjustments(selectedDateKey);
+  }, [selectedDateKey, loading]);
 
   const persistRoomOrder = async (orderedRooms: Room[]) => {
     try {
@@ -330,6 +366,48 @@ export default function RoomsPage() {
 
   const clampRate = (rate: number) => Math.min(100, Math.max(0, rate));
 
+  const handleChangeDelta = async (room: Room, sold: number, nextDelta: number) => {
+    const nextAdjusted = getDailyRoomAdjustedInventory(room, nextDelta);
+    if (nextAdjusted < sold) {
+      // eslint-disable-next-line no-alert
+      alert('이미 판매된 수량보다 적게 설정할 수 없습니다.');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/inventory-adjustments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomId: room.id,
+          date: selectedDateKey,
+          delta: nextDelta,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        // eslint-disable-next-line no-alert
+        alert(data.error ?? '재고 조정 저장에 실패했습니다. 잠시 후 다시 시도해주세요.');
+        return;
+      }
+
+      setInventoryAdjustments((prev) => {
+        const others = prev.filter(
+          (item) => !(item.roomId === room.id && item.date === selectedDateKey),
+        );
+        if (nextDelta === 0) {
+          return others;
+        }
+        return [...others, { roomId: room.id, date: selectedDateKey, delta: nextDelta }];
+      });
+    } catch (error) {
+      console.error('Failed to save inventory adjustment:', error);
+      // eslint-disable-next-line no-alert
+      alert('재고 조정 저장에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -433,7 +511,10 @@ export default function RoomsPage() {
             const price = getPreviewPrice(room);
             const rate = clampRate(room.discountRate ?? 0);
             const discountedPrice = rate > 0 ? Math.round(price * (1 - rate / 100)) : price;
-            const { sold, remaining } = getRoomDailyUsage(room, reservations, selectedStartDate);
+            const sold = getDailyRoomSoldCount(reservations, room.id, selectedDateKey);
+            const delta = adjustmentByRoomId.get(room.id) ?? 0;
+            const adjustedInventory = getDailyRoomAdjustedInventory(room, delta);
+            const remaining = getDailyRoomRemaining(adjustedInventory, sold);
             const remainingBadgeClass =
               remaining > 0
                 ? 'bg-emerald-50 text-emerald-700'
@@ -470,19 +551,16 @@ export default function RoomsPage() {
                   )}
 
                   {/* 판매/잔여 배지 - 이미지 위 좌측 상단 */}
-                  <div className="absolute top-2 left-2 flex flex-col gap-1 text-[11px]">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-black/40 text-white backdrop-blur">
-                      <span className="w-1.5 h-1.5 rounded-full bg-white/80 mr-1.5" />
-                      판매
-                      <span className="ml-1 font-semibold">{sold}</span>
-                    </span>
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full backdrop-blur ${remainingBadgeClass}`}
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full mr-1.5 bg-current opacity-70" />
-                      잔여
-                      <span className="ml-1 font-semibold">{remaining}</span>
-                      <span className="ml-1 text-[10px] opacity-70">(총 {room.inventory})</span>
+                  <div className="absolute top-2 left-2 text-[11px]">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-white backdrop-blur">
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          remaining > 0 ? 'bg-emerald-300' : 'bg-red-400'
+                        }`}
+                      />
+                      <span>판매 {sold}</span>
+                      <span className="mx-1 h-3 w-px bg-white/35" />
+                      <span>잔여 {remaining}</span>
                     </span>
                   </div>
                 </div>
@@ -509,6 +587,54 @@ export default function RoomsPage() {
                         </span>
                       </>
                     )}
+                  </div>
+
+                  {/* 재고/잔여 요약 + 잔여 조정 스텝퍼 */}
+                  <div className="px-4 mt-2 flex items-center justify-between gap-3">
+                    <div className="flex flex-col text-[11px] text-gray-500">
+                      <span>
+                        기본 {room.inventory}개 · 판매 {sold}개
+                      </span>
+                      <span className={delta !== 0 ? 'text-blue-600' : 'text-gray-400'}>
+                        잔여 {remaining}개
+                        {delta !== 0 && (
+                          <>
+                            {' '}
+                            (조정 {delta > 0 ? `+${delta}` : delta}개 반영)
+                          </>
+                        )}
+                      </span>
+                    </div>
+                    <div className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2 py-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (remaining <= 0) return;
+                          const nextRemaining = remaining - 1;
+                          const nextAdjusted = nextRemaining + sold;
+                          const nextDelta = nextAdjusted - room.inventory;
+                          void handleChangeDelta(room, sold, nextDelta);
+                        }}
+                        className="flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold text-gray-700 hover:bg-gray-100"
+                      >
+                        −
+                      </button>
+                      <span className="min-w-[80px] text-center text-[11px] text-gray-800">
+                        잔여 {remaining}개
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextRemaining = remaining + 1;
+                          const nextAdjusted = nextRemaining + sold;
+                          const nextDelta = nextAdjusted - room.inventory;
+                          void handleChangeDelta(room, sold, nextDelta);
+                        }}
+                        className="flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold text-gray-700 hover:bg-gray-100"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
 
                   {/* 버튼 영역(카톡의 '예약하기' 자리) */}

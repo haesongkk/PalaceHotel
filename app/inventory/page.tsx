@@ -10,7 +10,7 @@ import {
   toDateKey,
   formatStayLabel,
 } from '@/lib/reservation-utils';
-import type { Reservation, ReservationStatus, Room, DayOfWeek, ReservationType } from '@/types';
+import type { Reservation, ReservationStatus, Room, DayOfWeek, ReservationType, RoomInventoryAdjustment } from '@/types';
 import ReservationConversationPanel from '@/components/ReservationConversationPanel';
 
 type InventorySummary = {
@@ -107,13 +107,23 @@ function formatKoreanDate(date: Date): string {
 function getDailyInventorySummary(
   rooms: Room[],
   reservations: Reservation[],
-  date: Date
+  date: Date,
+  adjustmentsForDate: RoomInventoryAdjustment[],
 ): InventorySummary {
   const effectiveReservations = getEffectiveReservationsForDate(reservations, date);
   const confirmedReservations = effectiveReservations.filter((r) => r.status === 'confirmed');
   const pendingReservations = effectiveReservations.filter((r) => r.status === 'pending');
 
-  const totalInventory = rooms.reduce((sum, room) => sum + (room.inventory ?? 0), 0);
+  const deltaByRoomId = new Map<string, number>();
+  adjustmentsForDate.forEach((adj) => {
+    deltaByRoomId.set(adj.roomId, (deltaByRoomId.get(adj.roomId) ?? 0) + adj.delta);
+  });
+
+  const totalInventory = rooms.reduce((sum, room) => {
+    const base = room.inventory ?? 0;
+    const delta = deltaByRoomId.get(room.id) ?? 0;
+    return sum + base + delta;
+  }, 0);
 
   // 객실 타입별로 재고를 나눠 쓰지만, 달력에는 단순 합계를 보여준다.
   const sold = confirmedReservations.length;
@@ -131,12 +141,15 @@ function getDailyInventorySummary(
 function getRoomDailyUsage(
   room: Room,
   reservations: Reservation[],
-  date: Date
+  date: Date,
+  adjustmentsForDate: RoomInventoryAdjustment[],
 ): { sold: number; remaining: number } {
   const effectiveReservations = getEffectiveReservationsForDate(reservations, date)
     .filter((r) => r.roomId === room.id && r.status === 'confirmed');
   const sold = effectiveReservations.length;
-  const remaining = Math.max(0, room.inventory - sold);
+  const delta = adjustmentsForDate.find((a) => a.roomId === room.id)?.delta ?? 0;
+  const adjustedInventory = (room.inventory ?? 0) + delta;
+  const remaining = Math.max(0, adjustedInventory - sold);
   return { sold, remaining };
 }
 
@@ -172,6 +185,7 @@ export default function InventoryPage() {
   const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
 
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [inventoryAdjustments, setInventoryAdjustments] = useState<RoomInventoryAdjustment[]>([]);
 
   const totalPendingReservations = useMemo(
     () => reservations.filter((r) => r.status === 'pending').length,
@@ -209,14 +223,36 @@ export default function InventoryPage() {
 
   const monthDays = useMemo(() => getMonthGrid(currentMonth), [currentMonth]);
 
+  useEffect(() => {
+    const fetchAdjustmentsForMonth = async () => {
+      if (monthDays.length === 0) return;
+      const start = toDateKey(monthDays[0]);
+      const end = toDateKey(monthDays[monthDays.length - 1]);
+      try {
+        const res = await fetch(
+          `/api/inventory-adjustments?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
+        );
+        if (!res.ok) return;
+        const json: { items?: RoomInventoryAdjustment[] } = await res.json();
+        setInventoryAdjustments(json.items ?? []);
+      } catch (error) {
+        console.error('Failed to fetch inventory adjustments for month:', error);
+      }
+    };
+
+    void fetchAdjustmentsForMonth();
+  }, [monthDays]);
+
   const monthlySummaryMap = useMemo(() => {
     const map = new Map<string, InventorySummary>();
     monthDays.forEach((date) => {
-      const summary = getDailyInventorySummary(rooms, reservations, date);
+      const dateKey = toDateKey(date);
+      const adjustmentsForDate = inventoryAdjustments.filter((a) => a.date === dateKey);
+      const summary = getDailyInventorySummary(rooms, reservations, date, adjustmentsForDate);
       map.set(summary.dateKey, summary);
     });
     return map;
-  }, [monthDays, rooms, reservations]);
+  }, [monthDays, rooms, reservations, inventoryAdjustments]);
 
   useEffect(() => {
     if (selectedDate) {
@@ -263,11 +299,13 @@ export default function InventoryPage() {
 
   const selectedDateRoomUsages = useMemo(() => {
     if (!selectedDate) return [];
+    const dateKey = toDateKey(selectedDate);
+    const adjustmentsForDate = inventoryAdjustments.filter((a) => a.date === dateKey);
     return rooms.map((room) => ({
       room,
-      ...getRoomDailyUsage(room, reservations, selectedDate),
+      ...getRoomDailyUsage(room, reservations, selectedDate, adjustmentsForDate),
     }));
-  }, [rooms, reservations, selectedDate]);
+  }, [rooms, reservations, selectedDate, inventoryAdjustments]);
 
   const selectedDatePendingCount = useMemo(
     () => selectedDateReservations.filter((r) => r.status === 'pending').length,

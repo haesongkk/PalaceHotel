@@ -19,7 +19,7 @@ import {
 } from 'recharts';
 import Layout from '@/components/Layout';
 import { getEffectiveReservationsForDate, formatStayLabel } from '@/lib/reservation-utils';
-import type { Reservation, ReservationStatus, ReservationType, Room } from '@/types';
+import type { Reservation, ReservationStatus, ReservationType, Room, RoomInventoryAdjustment } from '@/types';
 
 const statusLabels: Record<ReservationStatus, string> = {
   pending: '대기',
@@ -122,19 +122,41 @@ type TodayReservationsProps = {
   reservations: Reservation[];
   rooms: Room[];
   reservationTypes: ReservationType[];
+  selectedDateKey: string;
+  adjustments: RoomInventoryAdjustment[];
 };
 
-function TodayReservations({ reservations, rooms, reservationTypes }: TodayReservationsProps) {
+function TodayReservations({
+  reservations,
+  rooms,
+  reservationTypes,
+  selectedDateKey,
+  adjustments,
+}: TodayReservationsProps) {
   const hasItems = reservations.length > 0;
   const formatStatusLabel = (status: ReservationStatus) => statusLabels[status] ?? status;
 
-  const totalRooms = rooms.reduce((sum, room) => sum + (room.inventory ?? 0), 0);
+  const adjustmentByRoomId = new Map<string, number>();
+  adjustments.forEach((item) => {
+    if (item.date === selectedDateKey) {
+      adjustmentByRoomId.set(item.roomId, item.delta);
+    }
+  });
+
+  const totalRooms = rooms.reduce((sum, room) => {
+    const delta = adjustmentByRoomId.get(room.id) ?? 0;
+    const base = room.inventory ?? 0;
+    return sum + (base + delta);
+  }, 0);
+
   const usedRooms = reservations.length;
 
   const roomStats = rooms
     .map((room) => {
       const sold = reservations.filter((r) => r.roomId === room.id).length;
-      const remaining = (room.inventory ?? 0) - sold;
+      const delta = adjustmentByRoomId.get(room.id) ?? 0;
+      const adjustedInventory = (room.inventory ?? 0) + delta;
+      const remaining = adjustedInventory - sold;
       return {
         room,
         sold,
@@ -985,24 +1007,29 @@ export default function Dashboard() {
   const [roomTypeStats, setRoomTypeStats] = useState<RoomTypeStat[]>([]);
   const [trendPeriod, setTrendPeriod] = useState<'7d' | '30d'>('7d');
   const [loading, setLoading] = useState(true);
+  const [inventoryAdjustments, setInventoryAdjustments] = useState<RoomInventoryAdjustment[]>([]);
+  const [todayKey] = useState<string>(() => getTodayDateString());
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [reservationsRes, roomsRes, typesRes] = await Promise.all([
+        const [reservationsRes, roomsRes, typesRes, adjustmentsRes] = await Promise.all([
           fetch('/api/reservations'),
           fetch('/api/rooms'),
           fetch('/api/reservation-types'),
+          fetch(`/api/inventory-adjustments?date=${encodeURIComponent(todayKey)}`),
         ]);
         const reservationsData: Reservation[] = await reservationsRes.json();
         const roomsData: Room[] = await roomsRes.json();
         const typesData: ReservationType[] = await typesRes.json();
+        const adjustmentsJson: { items?: RoomInventoryAdjustment[] } = await adjustmentsRes.json();
         setReservations(reservationsData);
         setRooms(roomsData);
         setReservationTypes(typesData);
         setMetrics(calculateMetrics(reservationsData, roomsData));
         setTodayReservations(getEffectiveReservationsForDate(reservationsData, new Date()));
         setTodoItems(buildTodoItems(reservationsData, roomsData));
+        setInventoryAdjustments(adjustmentsJson.items ?? []);
         const range = trendPeriod === '7d' ? 7 : 30;
         setReservationTrend(buildReservationTrend(reservationsData, range));
         setOccupancyAdr(buildOccupancyAdr(reservationsData, roomsData, range));
@@ -1047,6 +1074,8 @@ export default function Dashboard() {
                     reservations={todayReservations}
                     rooms={rooms}
                     reservationTypes={reservationTypes}
+                    selectedDateKey={todayKey}
+                    adjustments={inventoryAdjustments}
                   />
                 </div>
                 <div>

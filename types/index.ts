@@ -71,6 +71,15 @@ export interface PendingReservation {
   createdAt: string; // ISO date string (만료 시간 체크용)
 }
 
+// 객실 재고 일자별 조정치
+export interface RoomInventoryAdjustment {
+  roomId: string;
+  /** YYYY-MM-DD 형태의 날짜 문자열 */
+  date: string;
+  /** 해당 날짜에 대해 기본 inventory에 더해지는 조정치(음수/양수 모두 허용) */
+  delta: number;
+}
+
 // 카카오톡 챗봇 멘트 타입
 export type ChatbotSituation = 
   | 'channel_added'           // 채널 추가시

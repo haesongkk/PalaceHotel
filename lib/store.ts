@@ -1,4 +1,4 @@
-import { Room, Reservation, ChatbotMessage, ChatHistory, ChatMessage, ChatbotSituation, PendingReservation, ReservationType } from '@/types';
+import { Room, Reservation, ChatbotMessage, ChatHistory, ChatMessage, ChatbotSituation, PendingReservation, ReservationType, RoomInventoryAdjustment } from '@/types';
 
 // 메모리 데이터 저장소
 class DataStore {
@@ -8,6 +8,8 @@ class DataStore {
   private chatbotMessages: Map<ChatbotSituation, ChatbotMessage> = new Map();
   private chatHistories: ChatHistory[] = [];
   private pendingReservations: Map<string, PendingReservation> = new Map(); // userId -> PendingReservation
+  // 객실 타입 × 날짜 단위 재고 조정치 (roomId:date -> delta)
+  private roomInventoryAdjustments: Map<string, RoomInventoryAdjustment> = new Map();
 
   // 상황별 설명 정의
   private situationDescriptions: Record<ChatbotSituation, string> = {
@@ -343,6 +345,52 @@ class DataStore {
     return true;
   }
 
+  // 재고 조정 관련 메서드
+  private buildInventoryAdjustmentKey(roomId: string, date: string): string {
+    return `${roomId}:${date}`;
+  }
+
+  /** 특정 객실/날짜에 대한 재고 조정치(delta) 조회 (없으면 0) */
+  getRoomInventoryAdjustment(roomId: string, date: string): number {
+    const key = this.buildInventoryAdjustmentKey(roomId, date);
+    const item = this.roomInventoryAdjustments.get(key);
+    return item?.delta ?? 0;
+  }
+
+  /** 특정 객실/날짜의 재고 조정치(delta)를 설정 (0이면 항목 제거) */
+  setRoomInventoryAdjustment(roomId: string, date: string, delta: number): RoomInventoryAdjustment {
+    const key = this.buildInventoryAdjustmentKey(roomId, date);
+    if (delta === 0) {
+      this.roomInventoryAdjustments.delete(key);
+      return { roomId, date, delta: 0 };
+    }
+    const value: RoomInventoryAdjustment = { roomId, date, delta };
+    this.roomInventoryAdjustments.set(key, value);
+    return value;
+  }
+
+  /** 특정 날짜에 대한 모든 객실 재고 조정 목록 조회 */
+  getRoomInventoryAdjustmentsForDate(date: string): RoomInventoryAdjustment[] {
+    const result: RoomInventoryAdjustment[] = [];
+    for (const item of this.roomInventoryAdjustments.values()) {
+      if (item.date === date) {
+        result.push(item);
+      }
+    }
+    return result;
+  }
+
+  /** 날짜 범위(YYYY-MM-DD) 내 모든 재고 조정 목록 조회 */
+  getRoomInventoryAdjustmentsInRange(startDate: string, endDate: string): RoomInventoryAdjustment[] {
+    const result: RoomInventoryAdjustment[] = [];
+    for (const item of this.roomInventoryAdjustments.values()) {
+      if (item.date >= startDate && item.date <= endDate) {
+        result.push(item);
+      }
+    }
+    return result;
+  }
+
   // 예약 타입 관련 메서드
   getReservationTypes(): ReservationType[] {
     return this.reservationTypes;
@@ -391,8 +439,8 @@ class DataStore {
     const room = this.getRoom(roomId);
     if (!room) return false;
 
-    const totalInventory = room.inventory;
-    if (totalInventory <= 0) return false;
+    const baseInventory = room.inventory;
+    if (baseInventory <= 0) return false;
 
     const start = new Date(checkIn);
     const rawEnd = new Date(checkOut);
@@ -424,11 +472,22 @@ class DataStore {
       return effectiveStatuses.includes(r.status as (typeof effectiveStatuses)[number]);
     });
 
-    // 날짜별로 순회하면서 재고 초과 여부 확인
+    // 날짜별로 순회하면서 (기본 재고 + 조정치) 기준 재고 초과 여부 확인
     for (let d = new Date(dayStart); d < dayEnd; d.setDate(d.getDate() + 1)) {
       const slotStart = new Date(d);
       const slotEnd = new Date(slotStart);
       slotEnd.setDate(slotEnd.getDate() + 1);
+
+      const y = slotStart.getFullYear();
+      const m = String(slotStart.getMonth() + 1).padStart(2, '0');
+      const day = String(slotStart.getDate()).padStart(2, '0');
+      const dateKey = `${y}-${m}-${day}`;
+      const delta = this.getRoomInventoryAdjustment(roomId, dateKey);
+      const effectiveInventory = baseInventory + delta;
+
+      if (effectiveInventory <= 0) {
+        return false;
+      }
 
       const soldCount = reservations.filter((r) => {
         const resStart = new Date(r.checkIn);
@@ -448,7 +507,7 @@ class DataStore {
         return resDayStart < slotEnd && resDayEnd > slotStart;
       }).length;
 
-      if (soldCount >= totalInventory) {
+      if (soldCount >= effectiveInventory) {
         return false;
       }
     }
