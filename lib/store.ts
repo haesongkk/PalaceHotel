@@ -580,7 +580,20 @@ class DataStore {
 
   addTemplateHistory(displayName: string, tplCode: string, content: string): void {
     const list = this.templateHistory.get(displayName) ?? [];
-    list.unshift({ tplCode, content, savedAt: new Date().toISOString() });
+    // 동일 tplCode가 이미 있으면 중복 추가 대신 내용을 최신으로 갱신하고 맨 앞으로 이동
+    const existingIndex = list.findIndex((x) => x.tplCode === tplCode);
+    if (existingIndex >= 0) {
+      const existing = list[existingIndex];
+      list.splice(existingIndex, 1);
+      list.unshift({
+        tplCode,
+        content,
+        // savedAt은 항상 "가장 최근에 사용/연결한 시점"을 의미하도록 현재 시각으로 갱신
+        savedAt: new Date().toISOString(),
+      });
+    } else {
+      list.unshift({ tplCode, content, savedAt: new Date().toISOString() });
+    }
     if (list.length > 10) list.pop();
     this.templateHistory.set(displayName, list);
   }

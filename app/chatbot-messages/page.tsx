@@ -138,19 +138,16 @@ export default function ChatbotMessagesPage() {
       (t) => (t.templtName ?? '').startsWith(prefix)
     );
     const active = templateHistory[displayName]?.activeTplCode;
+    // 대표 템플릿이 설정되어 있으면 상태와 무관하게 항상 대표 템플릿을 우선 표시
     const activeT = active
-      ? templates.find((x) => x.templtCode === active) ?? matching.find((x) => x.templtCode === active)
-      : matching.find((x) => x.inspStatus === 'APR') ?? matching[0];
+      ? templates.find((x) => x.templtCode === active) ?? null
+      : matching.find((x) => x.inspStatus === 'APR') ?? matching[0] ?? null;
     return {
       displayName,
       template: activeT ?? null,
       activeTplCode: active ?? activeT?.templtCode ?? null,
     };
   });
-
-  const canRequestTemplate = (t: AlimtalkTemplate) =>
-    t.status === 'R' && (t.inspStatus === 'REG' || t.inspStatus === 'REJ');
-  const canDeleteTemplate = (t: AlimtalkTemplate) => t.inspStatus !== 'APR';
 
   const handleRequestApproval = async (tpl_code: string) => {
     setActionLoading(tpl_code);
@@ -306,16 +303,6 @@ export default function ChatbotMessagesPage() {
                         )}
                       </div>
                       <div className="ml-4 flex flex-col gap-2 shrink-0">
-                        {item.template && canRequestTemplate(item.template) && (
-                          <button
-                            type="button"
-                            disabled={actionLoading !== null}
-                            onClick={() => handleRequestApproval(item.template!.templtCode)}
-                            className="px-3 py-1.5 bg-amber-600 text-white rounded text-sm hover:bg-amber-700 disabled:opacity-50"
-                          >
-                            {actionLoading === item.template?.templtCode ? '처리 중...' : '검수 요청'}
-                          </button>
-                        )}
                         <button
                           type="button"
                           onClick={() => openTemplateModal(item.displayName, item.template)}
@@ -323,16 +310,6 @@ export default function ChatbotMessagesPage() {
                         >
                           {item.template ? '수정' : '등록'}
                         </button>
-                        {item.template && canDeleteTemplate(item.template) && (
-                          <button
-                            type="button"
-                            disabled={actionLoading !== null}
-                            onClick={() => handleDeleteTemplate(item.template!.templtCode)}
-                            className="px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700 disabled:opacity-50"
-                          >
-                            삭제
-                          </button>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -620,15 +597,27 @@ function AlimtalkTemplateFormModal({
     }
   };
 
-  const handleSetActive = async (tplCode: string) => {
+  const handleSetActive = async (tplCode: string, content: string) => {
     if (!effectiveDisplayName) return;
     try {
+      // 대표 템플릿 설정
       const res = await fetch('/api/alimtalk/template-active', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ displayName: effectiveDisplayName, tplCode }),
       });
-      if (res.ok) fetchHistory();
+      if (!res.ok) {
+        throw new Error('대표 템플릿 설정 실패');
+      }
+
+      // 사용 기록 갱신 (가장 최근에 사용한 템플릿 정렬용, 중복이면 savedAt만 최신으로 업데이트)
+      await fetch('/api/alimtalk/template-history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName: effectiveDisplayName, tplCode, content }),
+      });
+
+      fetchHistory();
     } catch {
       alert('설정 실패');
     }
@@ -716,9 +705,9 @@ function AlimtalkTemplateFormModal({
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">이전 메시지 (최대 3개)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">이전 메시지</label>
               <div className="space-y-2 max-h-80 overflow-y-auto">
-                {history.slice(0, 3).map((h) => (
+              {history.map((h) => (
                   <div
                     key={h.tplCode}
                     className="border rounded-md p-3 bg-gray-50 text-sm"
@@ -729,10 +718,10 @@ function AlimtalkTemplateFormModal({
                       <div className="flex gap-1">
                         <button
                           type="button"
-                          onClick={() => handleSetActive(h.tplCode)}
+                          onClick={() => handleSetActive(h.tplCode, h.content)}
                           className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
                         >
-                          이걸로 사용
+                          사용
                         </button>
                         <button
                           type="button"

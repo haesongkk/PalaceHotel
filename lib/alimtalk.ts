@@ -285,11 +285,26 @@ export async function getTemplateCodeByDisplayName(displayName: string): Promise
   const list = await getTemplateList();
   const sendable = list.filter((x) => x.inspStatus === 'APR' && x.status !== 'S');
   const active = dataStore.getTemplateActive(displayName);
-  if (!active) {
-    return null;
+
+  // 1순위: 대표 템플릿이 전송 가능한 상태면 그대로 사용
+  if (active) {
+    const found = sendable.find((x) => x.templtCode === active);
+    if (found) {
+      return active;
+    }
   }
-  const found = sendable.find((x) => x.templtCode === active);
-  return found ? active : null;
+
+  // 2순위: 전송 가능한 템플릿들 중에서 "가장 최근에 사용한" 템플릿 선택
+  const history = dataStore.getTemplateHistory(displayName);
+  for (const h of history) {
+    const found = sendable.find((x) => x.templtCode === h.tplCode);
+    if (found) {
+      return h.tplCode;
+    }
+  }
+
+  // 3순위: 아무 전송 가능한 템플릿도 없으면 null (호출부에서 콘솔만 찍고 넘어가도록 처리)
+  return null;
 }
 
 /**
@@ -298,13 +313,15 @@ export async function getTemplateCodeByDisplayName(displayName: string): Promise
 export async function sendReservationNotificationAlimtalk(reservationId: string): Promise<SendAlimtalkResult> {
   const adminPhone = process.env.ALIGO_ADMIN_PHONE;
   if (!adminPhone) {
-    throw new Error('관리자 전화번호가 설정되지 않았습니다. ALIGO_ADMIN_PHONE을 .env에 설정하세요.');
+    console.warn('[알림톡] 관리자 전화번호(ALIGO_ADMIN_PHONE)가 설정되지 않아 알림톡을 발송하지 않습니다.');
+    return { code: -1, message: 'ADMIN_PHONE_NOT_SET' };
   }
   const tplCode = await getTemplateCodeByDisplayName(DISPLAY_NAME_RESERVATION_REQUEST);
   if (!tplCode) {
-    throw new Error(
-      `"${DISPLAY_NAME_RESERVATION_REQUEST}" 템플릿을 찾을 수 없습니다. 챗봇 멘트에서 알림톡 템플릿을 등록·승인해주세요.`
+    console.warn(
+      `[알림톡] "${DISPLAY_NAME_RESERVATION_REQUEST}" 전송 가능한 템플릿이 없어 발송을 건너뜁니다.`
     );
+    return { code: -1, message: 'NO_SENDABLE_TEMPLATE' };
   }
   const content = await getTemplateContent(tplCode);
   const message = content ?? '[팰리스호텔] 새로운 예약 요청이 있습니다. 관리자 채널에서 확인해 주세요.';
@@ -340,13 +357,17 @@ export async function sendReservationStatusAlimtalk(
   const templateName = status === 'confirmed' ? DISPLAY_NAME_CONFIRMED : DISPLAY_NAME_REJECTED;
   const tplCode = await getTemplateCodeByDisplayName(templateName);
   if (!tplCode) {
-    throw new Error(
-      `"${templateName}" 템플릿을 찾을 수 없습니다. 챗봇 멘트에서 알림톡 템플릿을 등록·승인해주세요.`
+    console.warn(
+      `[알림톡] "${templateName}" 전송 가능한 템플릿이 없어 발송을 건너뜁니다.`
     );
+    return { code: -1, message: 'NO_SENDABLE_TEMPLATE' };
   }
   const content = await getTemplateContent(tplCode);
   if (!content) {
-    throw new Error(`템플릿 "${templateName}"의 본문을 가져올 수 없습니다.`);
+    console.warn(
+      `[알림톡] "${templateName}" 템플릿 본문을 가져올 수 없어 발송을 건너뜁니다. tplCode=${tplCode}`
+    );
+    return { code: -1, message: 'NO_TEMPLATE_CONTENT' };
   }
   const checkIn = formatDateForAlimtalk(reservationInfo.checkIn);
   const checkOut = formatDateForAlimtalk(reservationInfo.checkOut);
@@ -385,13 +406,15 @@ export async function sendReservationCancelledAlimtalk(
 ): Promise<SendAlimtalkResult> {
   const adminPhone = process.env.ALIGO_ADMIN_PHONE;
   if (!adminPhone) {
-    throw new Error('관리자 전화번호가 설정되지 않았습니다. ALIGO_ADMIN_PHONE을 .env에 설정하세요.');
+    console.warn('[알림톡] 관리자 전화번호(ALIGO_ADMIN_PHONE)가 설정되지 않아 취소 알림을 발송하지 않습니다.');
+    return { code: -1, message: 'ADMIN_PHONE_NOT_SET' };
   }
   const tplCode = await getTemplateCodeByDisplayName(DISPLAY_NAME_RESERVATION_CANCEL_ADMIN);
   if (!tplCode) {
-    throw new Error(
-      `"${DISPLAY_NAME_RESERVATION_CANCEL_ADMIN}" 템플릿을 찾을 수 없습니다. 챗봇 멘트에서 알림톡 템플릿을 등록·승인해주세요.`
+    console.warn(
+      `[알림톡] "${DISPLAY_NAME_RESERVATION_CANCEL_ADMIN}" 전송 가능한 템플릿이 없어 발송을 건너뜁니다.`
     );
+    return { code: -1, message: 'NO_SENDABLE_TEMPLATE' };
   }
   const content = await getTemplateContent(tplCode);
   const message =
@@ -425,13 +448,17 @@ export async function sendReservationCancelledByAdminAlimtalk(
 ): Promise<SendAlimtalkResult> {
   const tplCode = await getTemplateCodeByDisplayName(DISPLAY_NAME_CANCELLED_BY_ADMIN);
   if (!tplCode) {
-    throw new Error(
-      `"${DISPLAY_NAME_CANCELLED_BY_ADMIN}" 템플릿을 찾을 수 없습니다. 챗봇 멘트에서 알림톡 템플릿을 등록·승인해주세요.`
+    console.warn(
+      `[알림톡] "${DISPLAY_NAME_CANCELLED_BY_ADMIN}" 전송 가능한 템플릿이 없어 발송을 건너뜁니다.`
     );
+    return { code: -1, message: 'NO_SENDABLE_TEMPLATE' };
   }
   const content = await getTemplateContent(tplCode);
   if (!content) {
-    throw new Error(`템플릿 "${DISPLAY_NAME_CANCELLED_BY_ADMIN}"의 본문을 가져올 수 없습니다.`);
+    console.warn(
+      `[알림톡] "${DISPLAY_NAME_CANCELLED_BY_ADMIN}" 템플릿 본문을 가져올 수 없어 발송을 건너뜁니다. tplCode=${tplCode}`
+    );
+    return { code: -1, message: 'NO_TEMPLATE_CONTENT' };
   }
   const checkIn = formatDateForAlimtalk(reservationInfo.checkIn);
   const checkOut = formatDateForAlimtalk(reservationInfo.checkOut);

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTemplateList, createTemplate } from '@/lib/alimtalk';
+import { getTemplateList, createTemplate, requestTemplateApproval } from '@/lib/alimtalk';
 import { dataStore } from '@/lib/store';
 import { toInternalTemplateName } from '@/lib/alimtalk-config';
 
@@ -44,6 +44,15 @@ export async function POST(request: NextRequest) {
       tpl_stitle,
       tpl_button,
     });
+
+    // 신규 템플릿 생성 후 바로 검수 요청까지 자동 처리
+    try {
+      await requestTemplateApproval(data.templtCode);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : '검수 요청 실패';
+      return NextResponse.json({ error: `검수 요청 실패: ${message}` }, { status: 500 });
+    }
+
     if (displayName) {
       dataStore.addTemplateHistory(displayName, data.templtCode, data.templtContent);
       dataStore.setTemplateActive(displayName, data.templtCode);
