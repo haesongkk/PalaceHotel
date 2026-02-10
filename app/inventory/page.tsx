@@ -194,14 +194,6 @@ export default function InventoryPage() {
       setReservations(reservationsData);
       setReservationTypes(typesData);
 
-      // 기본 타입 "일반"을 기본 선택으로 맞추기
-      if (!createReservationTypeId) {
-        const defaultType = typesData.find((t) => t.id === 'default');
-        if (defaultType) {
-          setCreateReservationTypeId(defaultType.id);
-        }
-      }
-
       if (selectedDate == null) {
         setSelectedDate(new Date());
       }
@@ -462,8 +454,8 @@ export default function InventoryPage() {
     }
   };
 
-  const handleSaveReservationType = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveReservationType = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!newTypeName.trim() || !newTypeColor.trim()) {
       alert('예약 타입 이름과 색상을 모두 입력해주세요.');
       return;
@@ -484,10 +476,15 @@ export default function InventoryPage() {
         alert(data?.error ?? '예약 타입 생성에 실패했습니다.');
         return;
       }
+      const savedType = await res.json();
       setNewTypeName('');
       setNewTypeColor(PRESET_TYPE_COLORS[0]?.className ?? '');
       setEditingTypeId(null);
       await fetchData();
+      if (savedType?.id) {
+        setCreateReservationTypeId(savedType.id);
+        setShowNewTypeForm(false);
+      }
     } catch (error) {
       console.error(error);
       alert('예약 타입 생성에 실패했습니다.');
@@ -894,8 +891,7 @@ export default function InventoryPage() {
                     </p>
                   )}
                   {showNewTypeForm && (
-                    <form
-                      onSubmit={handleSaveReservationType}
+                    <div
                       className="mt-2 border border-dashed border-gray-200 rounded-md p-2 space-y-2"
                     >
                       <div className="grid grid-cols-2 gap-2">
@@ -941,14 +937,15 @@ export default function InventoryPage() {
                           취소
                         </button>
                         <button
-                          type="submit"
+                          type="button"
                           disabled={typeSubmitting}
+                          onClick={() => handleSaveReservationType()}
                           className="px-3 py-1 bg-gray-800 text-white text-xs font-medium rounded-md hover:bg-gray-900 disabled:opacity-50"
                         >
                           {typeSubmitting ? '저장 중...' : editingTypeId ? '타입 수정' : '타입 추가'}
                         </button>
                       </div>
-                    </form>
+                    </div>
                   )}
                 </div>
                 <div>

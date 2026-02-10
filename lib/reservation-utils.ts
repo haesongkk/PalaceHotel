@@ -13,7 +13,11 @@ export function parseISODate(dateString: string): Date {
 }
 
 export function toDateKey(date: Date): string {
-  return startOfDay(date).toISOString().slice(0, 10);
+  const d = startOfDay(date);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 /**
