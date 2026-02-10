@@ -279,31 +279,17 @@ function sanitizeDisplayName(displayName: string): string {
 
 /**
  * 표시 이름으로 템플릿 코드 조회 (승인된 템플릿만)
- * 1) store 활성 매핑 확인 2) Aligo 목록에서 매칭 (templtName이 displayName_sanitized_로 시작)
+ * - dataStore에 저장된 활성 매핑만 사용
  */
 export async function getTemplateCodeByDisplayName(displayName: string): Promise<string | null> {
   const list = await getTemplateList();
   const sendable = list.filter((x) => x.inspStatus === 'APR' && x.status !== 'S');
-  const prefix = `${sanitizeDisplayName(displayName)}_`;
   const active = dataStore.getTemplateActive(displayName);
-  if (active) {
-    const found = sendable.find((x) => x.templtCode === active);
-    if (found) return active;
+  if (!active) {
+    return null;
   }
-  const t = sendable.find((x) => (x.templtName ?? '').startsWith(prefix));
-  return t?.templtCode ?? null;
-}
-
-/** 구 템플릿명 매핑 (하위 호환) */
-async function getTemplateCodeByNameLegacy(templateName: string): Promise<string | null> {
-  const list = await getTemplateList();
-  const t = list.find(
-    (x) =>
-      (x.templtName ?? '').trim() === templateName &&
-      x.inspStatus === 'APR' &&
-      x.status !== 'S'
-  );
-  return t?.templtCode ?? null;
+  const found = sendable.find((x) => x.templtCode === active);
+  return found ? active : null;
 }
 
 /**
@@ -314,10 +300,7 @@ export async function sendReservationNotificationAlimtalk(reservationId: string)
   if (!adminPhone) {
     throw new Error('관리자 전화번호가 설정되지 않았습니다. ALIGO_ADMIN_PHONE을 .env에 설정하세요.');
   }
-  let tplCode = await getTemplateCodeByDisplayName(DISPLAY_NAME_RESERVATION_REQUEST);
-  if (!tplCode) {
-    tplCode = await getTemplateCodeByNameLegacy('관리자 알림');
-  }
+  const tplCode = await getTemplateCodeByDisplayName(DISPLAY_NAME_RESERVATION_REQUEST);
   if (!tplCode) {
     throw new Error(
       `"${DISPLAY_NAME_RESERVATION_REQUEST}" 템플릿을 찾을 수 없습니다. 챗봇 멘트에서 알림톡 템플릿을 등록·승인해주세요.`

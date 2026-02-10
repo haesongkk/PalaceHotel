@@ -135,7 +135,7 @@ export default function ChatbotMessagesPage() {
   const templateDisplayItems: TemplateDisplayItem[] = ALIMTALK_DISPLAY_NAMES.map((displayName) => {
     const prefix = sanitizeDisplayName(displayName) + '_';
     const matching = templates.filter(
-      (t) => (t.templtName ?? '').startsWith(prefix) || (displayName === '예약 요청 알림' && t.templtName === '관리자 알림')
+      (t) => (t.templtName ?? '').startsWith(prefix)
     );
     const active = templateHistory[displayName]?.activeTplCode;
     const activeT = active

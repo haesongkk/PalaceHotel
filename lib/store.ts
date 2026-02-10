@@ -165,6 +165,22 @@ class DataStore {
 
     // chatHistories는 이미 빈 배열로 선언되어 있으므로 초기화하지 않음
     // 실제 대화 내역은 addMessageToHistory()를 통해 추가됨
+
+    // 알림톡 템플릿 활성 코드 더미 초기값 (처음 실행 시 기본 연결용)
+    // TODO: 실제 알리고 templtCode 값으로 교체해서 사용하세요.
+    const initialTemplateActive: Array<{ displayName: string; tplCode: string }> = [
+      { displayName: '예약 요청 알림', tplCode: 'UF_2255' },
+      { displayName: '예약 취소 알림', tplCode: 'UF_4109' },
+      { displayName: '예약 확정 안내', tplCode: 'UF_2256' },
+      { displayName: '예약 거절 안내', tplCode: 'UF_2257' },
+      { displayName: '예약 취소 안내', tplCode: 'UF_4110' },
+    ];
+
+    initialTemplateActive.forEach(({ displayName, tplCode }) => {
+      if (tplCode) {
+        this.templateActiveMapping.set(displayName, tplCode);
+      }
+    });
   }
 
   private buildFebruaryDummyReservations(): Reservation[] {
