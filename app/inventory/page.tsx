@@ -869,16 +869,13 @@ export default function InventoryPage() {
                               </span>
                             </div>
                             <div className="text-gray-700">
-                              <span className="font-medium">
-                                {reservation.guestName || (isManual ? '관리자 수기 예약' : '고객')}
-                              </span>
                               {reservation.guestPhone && (
-                                <span className="text-gray-500 ml-1">{reservation.guestPhone}</span>
+                                <span className="text-gray-500">{reservation.guestPhone}</span>
                               )}
                             </div>
                             {reservation.adminMemo && (
                               <div className="mt-1 text-gray-500 line-clamp-2">
-                                메모: {reservation.adminMemo}
+                                {reservation.adminMemo}
                               </div>
                             )}
                             <div className="mt-1 flex items-center justify-between">
