@@ -16,6 +16,7 @@ type InventorySummary = {
   totalInventory: number;
   sold: number;
   remaining: number;
+  pending: number;
 };
 
 const statusLabels: Record<ReservationStatus, string> = {
@@ -106,14 +107,14 @@ function getDailyInventorySummary(
   reservations: Reservation[],
   date: Date
 ): InventorySummary {
-  const effectiveReservations = getEffectiveReservationsForDate(reservations, date).filter(
-    (r) => r.status === 'confirmed'
-  );
+  const effectiveReservations = getEffectiveReservationsForDate(reservations, date);
+  const confirmedReservations = effectiveReservations.filter((r) => r.status === 'confirmed');
+  const pendingReservations = effectiveReservations.filter((r) => r.status === 'pending');
 
   const totalInventory = rooms.reduce((sum, room) => sum + (room.inventory ?? 0), 0);
 
   // 객실 타입별로 재고를 나눠 쓰지만, 달력에는 단순 합계를 보여준다.
-  const sold = effectiveReservations.length;
+  const sold = confirmedReservations.length;
   const remaining = Math.max(0, totalInventory - sold);
 
   return {
@@ -121,6 +122,7 @@ function getDailyInventorySummary(
     totalInventory,
     sold,
     remaining,
+    pending: pendingReservations.length,
   };
 }
 
@@ -167,6 +169,11 @@ export default function InventoryPage() {
   const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
 
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+
+  const totalPendingReservations = useMemo(
+    () => reservations.filter((r) => r.status === 'pending').length,
+    [reservations]
+  );
 
   useEffect(() => {
     fetchData();
@@ -249,7 +256,14 @@ export default function InventoryPage() {
 
   const selectedDateReservations = useMemo(() => {
     if (!selectedDate) return [];
-    return getEffectiveReservationsForDate(reservations, selectedDate);
+    const list = getEffectiveReservationsForDate(reservations, selectedDate);
+    return [...list].sort((a, b) => {
+      const aPending = a.status === 'pending';
+      const bPending = b.status === 'pending';
+      if (aPending && !bPending) return -1;
+      if (!aPending && bPending) return 1;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
   }, [reservations, selectedDate]);
 
   const selectedDateRoomUsages = useMemo(() => {
@@ -259,6 +273,49 @@ export default function InventoryPage() {
       ...getRoomDailyUsage(room, reservations, selectedDate),
     }));
   }, [rooms, reservations, selectedDate]);
+
+  const selectedDatePendingCount = useMemo(
+    () => selectedDateReservations.filter((r) => r.status === 'pending').length,
+    [selectedDateReservations]
+  );
+
+  const pendingCheckInDateKeys = useMemo(() => {
+    const keys = new Set<number>();
+    reservations.forEach((r) => {
+      if (r.status !== 'pending') return;
+      const d = parseISODate(r.checkIn);
+      const y = d.getFullYear();
+      const m = d.getMonth() + 1;
+      const day = d.getDate();
+      const key = y * 10000 + m * 100 + day;
+      keys.add(key);
+    });
+    return Array.from(keys).sort((a, b) => a - b);
+  }, [reservations]);
+
+  const handleGoToNextPendingDate = () => {
+    if (pendingCheckInDateKeys.length === 0) return;
+
+    let nextKey: number;
+    if (!selectedDate) {
+      nextKey = pendingCheckInDateKeys[0];
+    } else {
+      const currentKey =
+        selectedDate.getFullYear() * 10000 +
+        (selectedDate.getMonth() + 1) * 100 +
+        selectedDate.getDate();
+      const idx = pendingCheckInDateKeys.findIndex((k) => k > currentKey);
+      nextKey = idx === -1 ? pendingCheckInDateKeys[0] : pendingCheckInDateKeys[idx];
+    }
+
+    const year = Math.floor(nextKey / 10000);
+    const month = Math.floor((nextKey % 10000) / 100);
+    const day = nextKey % 100;
+    if (!year || !month || !day) return;
+    const nextDate = new Date(year, month - 1, day);
+    setSelectedDate(nextDate);
+    setCurrentMonth(new Date(nextDate.getFullYear(), nextDate.getMonth(), 1));
+  };
 
   const formatStatusLabel = (status: ReservationStatus) => statusLabels[status] ?? status;
 
@@ -454,7 +511,20 @@ export default function InventoryPage() {
   return (
     <Layout>
       <div className="px-4 py-6 sm:px-0">
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">재고 관리</h1>
+        <div className="mb-6 flex items-center justify-between gap-3">
+          <h1 className="text-3xl font-bold text-gray-900">재고 관리</h1>
+          <span
+            className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${
+              totalPendingReservations > 0
+                ? 'border-amber-200 bg-amber-50 text-amber-800'
+                : 'border-gray-200 bg-gray-50 text-gray-500'
+            }`}
+          >
+            {totalPendingReservations > 0
+              ? `대기 예약 ${totalPendingReservations}건`
+              : '대기 예약 없음'}
+          </span>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* 달력 */}
@@ -479,17 +549,31 @@ export default function InventoryPage() {
                   ›
                 </button>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  const today = new Date();
-                  setCurrentMonth(new Date(today.getFullYear(), today.getMonth(), 1));
-                  setSelectedDate(today);
-                }}
-                className="px-3 py-1.5 text-sm rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50"
-              >
-                오늘로 이동
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleGoToNextPendingDate}
+                  disabled={pendingCheckInDateKeys.length === 0}
+                  className={`px-3 py-1.5 text-sm rounded-full border text-gray-700 ${
+                    pendingCheckInDateKeys.length === 0
+                      ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
+                      : 'border-amber-300 bg-amber-50 hover:bg-amber-100'
+                  }`}
+                >
+                  대기 날짜로 이동
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const today = new Date();
+                    setCurrentMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+                    setSelectedDate(today);
+                  }}
+                  className="px-3 py-1.5 text-sm rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  오늘로 이동
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-7 text-xs font-medium text-center text-gray-500 mb-2">
@@ -510,15 +594,18 @@ export default function InventoryPage() {
                   date.getMonth() === currentMonth.getMonth() &&
                   date.getFullYear() === currentMonth.getFullYear();
                 const isSelected = selectedDate && isSameDay(date, selectedDate);
+                const hasPending = summary && summary.pending > 0;
 
                 const baseClasses =
                   'border rounded-md px-1.5 py-1.5 cursor-pointer flex flex-col gap-0.5 transition-colors';
                 const bg =
                   isSelected
                     ? 'border-blue-500 bg-blue-50'
-                    : isCurrentMonth
-                      ? 'border-gray-200 hover:bg-gray-50'
-                      : 'border-gray-100 bg-gray-50 text-gray-400';
+                    : hasPending && isCurrentMonth
+                      ? 'border-amber-300 bg-amber-50 hover:bg-amber-100'
+                      : isCurrentMonth
+                        ? 'border-gray-200 hover:bg-gray-50'
+                        : 'border-gray-100 bg-gray-50 text-gray-400';
 
                 const isToday = isSameDay(date, new Date());
 
@@ -530,13 +617,18 @@ export default function InventoryPage() {
                     onClick={() => setSelectedDate(new Date(date))}
                   >
                     <div className="flex items-center justify-between">
-                      <span
-                        className={`text-xs font-semibold ${
-                          isToday ? 'text-blue-600' : isCurrentMonth ? 'text-gray-800' : 'text-gray-400'
-                        }`}
-                      >
-                        {date.getDate()}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {hasPending && (
+                          <span className="inline-flex h-1.5 w-1.5 rounded-full bg-amber-400" />
+                        )}
+                        <span
+                          className={`text-xs font-semibold ${
+                            isToday ? 'text-blue-600' : isCurrentMonth ? 'text-gray-800' : 'text-gray-400'
+                          }`}
+                        >
+                          {date.getDate()}
+                        </span>
+                      </div>
                       {isToday && (
                         <span className="inline-flex items-center px-1 rounded-full bg-blue-100 text-blue-700 text-[10px] font-medium">
                           오늘
@@ -574,8 +666,15 @@ export default function InventoryPage() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-lg font-semibold text-gray-900">선택한 날짜</h2>
-                <span className="text-sm text-gray-500">
-                  {selectedDate ? formatKoreanDate(selectedDate) : '날짜를 선택해주세요'}
+                <span className="flex items-center gap-2">
+                  {selectedDate && selectedDatePendingCount > 0 && (
+                    <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+                      대기 {selectedDatePendingCount}건
+                    </span>
+                  )}
+                  <span className="text-sm text-gray-500">
+                    {selectedDate ? formatKoreanDate(selectedDate) : '날짜를 선택해주세요'}
+                  </span>
                 </span>
               </div>
 
@@ -622,10 +721,15 @@ export default function InventoryPage() {
                         return (
                           <div
                             key={reservation.id}
-                            className="border border-gray-200 rounded-md px-3 py-2 text-xs bg-gray-50"
+                            className={`border border-gray-200 rounded-md px-3 py-2 text-xs ${
+                              reservation.status === 'pending' ? 'bg-amber-50' : 'bg-gray-50'
+                            }`}
                           >
                             <div className="flex items-center justify-between mb-1">
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1.5">
+                                {reservation.status === 'pending' && (
+                                  <span className="inline-flex h-1.5 w-1.5 rounded-full bg-amber-400" />
+                                )}
                                 <span className="font-semibold text-gray-900">
                                   {room ? room.type : '객실 정보 없음'}
                                 </span>
