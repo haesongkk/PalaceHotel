@@ -13,6 +13,8 @@ export interface Room {
   discountRate?: number; // 할인율(%) - 없으면 0으로 간주
   /** 재고(객실 수량) */
   inventory: number;
+  /** 정렬 순서 (작을수록 먼저, 카톡 캐로셀 노출 순서와 동일) */
+  sortOrder?: number;
   prices: Record<DayOfWeek, DayPrices>; // 요일별 숙박/대실 가격
   dayUseCheckIn: string; // 대실 입실시간 (HH:mm)
   dayUseCheckOut: string; // 대실 퇴실시간 (HH:mm)

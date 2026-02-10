@@ -47,6 +47,7 @@ class DataStore {
         inventory: 10,
         type: '올나잇대실',
         discountRate: 10,
+        sortOrder: 1,
         prices: defaultPrices,
         dayUseCheckIn: '10:00',
         dayUseCheckOut: '18:00',
@@ -59,6 +60,7 @@ class DataStore {
         inventory: 8,
         type: '2PC게임',
         discountRate: 10,
+        sortOrder: 2,
         prices: {
           monday: { stayPrice: 60000, dayUsePrice: 30000 },
           tuesday: { stayPrice: 60000, dayUsePrice: 30000 },
@@ -79,6 +81,7 @@ class DataStore {
         inventory: 5,
         type: '디럭스',
         discountRate: 10,
+        sortOrder: 3,
         prices: {
           monday: { stayPrice: 35000, dayUsePrice: 20000 },
           tuesday: { stayPrice: 35000, dayUsePrice: 20000 },
@@ -99,6 +102,7 @@ class DataStore {
         inventory: 8,
         type: '도보특가',
         discountRate: 10,
+        sortOrder: 4,
         prices: {
           monday: { stayPrice: 60000, dayUsePrice: 30000 },
           tuesday: { stayPrice: 60000, dayUsePrice: 30000 },
@@ -260,7 +264,16 @@ class DataStore {
 
   // 객실 관련 메서드
   getRooms(): Room[] {
-    return this.rooms;
+    // sortOrder가 설정되어 있으면 그것을 기준으로, 없으면 기존 등록 순서를 기준으로 정렬
+    return this.rooms
+      .map((room, index) => ({ room, index }))
+      .sort((a, b) => {
+        const orderA = a.room.sortOrder ?? a.index;
+        const orderB = b.room.sortOrder ?? b.index;
+        if (orderA === orderB) return 0;
+        return orderA < orderB ? -1 : 1;
+      })
+      .map(({ room }) => room);
   }
 
   getRoom(id: string): Room | undefined {
@@ -268,9 +281,16 @@ class DataStore {
   }
 
   addRoom(room: Omit<Room, 'id'>): Room {
+    const currentMaxOrder =
+      this.rooms.reduce((max, r) => {
+        const v = r.sortOrder ?? 0;
+        return v > max ? v : max;
+      }, 0) || 0;
+
     const newRoom: Room = {
       ...room,
       id: Date.now().toString(),
+      sortOrder: (room.sortOrder ?? currentMaxOrder + 1),
     };
     this.rooms.push(newRoom);
     return newRoom;

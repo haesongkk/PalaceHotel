@@ -139,6 +139,7 @@ export default function RoomsPage() {
   });
   const [selectedStartDate, setSelectedStartDate] = useState<Date>(() => new Date());
   const [selectedEndDate, setSelectedEndDate] = useState<Date | null>(null);
+  const [draggingRoomId, setDraggingRoomId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchRooms();
@@ -158,6 +159,24 @@ export default function RoomsPage() {
       console.error('Failed to fetch rooms:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const persistRoomOrder = async (orderedRooms: Room[]) => {
+    try {
+      await Promise.all(
+        orderedRooms.map((room, index) =>
+          fetch(`/api/rooms/${room.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sortOrder: index + 1 }),
+          }),
+        ),
+      );
+    } catch (error) {
+      console.error('Failed to persist room order:', error);
+      alert('객실 순서 저장에 실패했습니다. 다시 시도해주세요.');
+      fetchRooms();
     }
   };
 
@@ -194,6 +213,55 @@ export default function RoomsPage() {
     setIsModalOpen(false);
     setEditingRoom(null);
     fetchRooms();
+  };
+
+  const handleDragStart = (roomId: string) => {
+    setDraggingRoomId(roomId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggingRoomId(null);
+  };
+
+  const handleCardDragOver = (e: React.DragEvent<HTMLDivElement>, targetRoomId: string) => {
+    e.preventDefault();
+    if (!draggingRoomId || draggingRoomId === targetRoomId) return;
+
+    setRooms((prev) => {
+      const fromIndex = prev.findIndex((r) => r.id === draggingRoomId);
+      const toIndex = prev.findIndex((r) => r.id === targetRoomId);
+      if (fromIndex === -1 || toIndex === -1) return prev;
+      const updated = [...prev];
+      const [moved] = updated.splice(fromIndex, 1);
+      updated.splice(toIndex, 0, moved);
+      return updated;
+    });
+  };
+
+  const handleCardDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (!draggingRoomId) return;
+    setDraggingRoomId(null);
+    if (rooms.length === 0) return;
+    await persistRoomOrder(rooms);
+  };
+
+  const handleDropOnAddCard = async (e: React.DragEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    if (!draggingRoomId) return;
+
+    const updated = (() => {
+      const current = [...rooms];
+      const fromIndex = current.findIndex((r) => r.id === draggingRoomId);
+      if (fromIndex === -1) return current;
+      const [moved] = current.splice(fromIndex, 1);
+      current.push(moved);
+      return current;
+    })();
+
+    setRooms(updated);
+    setDraggingRoomId(null);
+    await persistRoomOrder(updated);
   };
 
   const handlePrevMonth = () => {
@@ -277,18 +345,6 @@ export default function RoomsPage() {
       <div className="px-4 py-6 sm:px-0">
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-3xl font-bold text-gray-900">객실 관리</h1>
-          <button
-            onClick={handleAdd}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg shadow-sm transition-colors flex items-center gap-2"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            객실 추가
-          </button>
-        </div>
-
-        <div className="mb-6 flex justify-end">
           <div className="relative">
             <button
               type="button"
@@ -385,7 +441,14 @@ export default function RoomsPage() {
             return (
               <div
                 key={room.id}
-                className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-200"
+                draggable
+                onDragStart={() => handleDragStart(room.id)}
+                onDragEnd={handleDragEnd}
+                onDragOver={(e) => handleCardDragOver(e, room.id)}
+                onDrop={handleCardDrop}
+                className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-200 ${
+                  draggingRoomId === room.id ? 'ring-2 ring-blue-400 ring-offset-2' : ''
+                }`}
               >
                 {/* 이미지 영역 */}
                 <div className="relative h-44 overflow-hidden bg-gray-100">
@@ -467,6 +530,28 @@ export default function RoomsPage() {
               </div>
             );
           })}
+
+          {/* 객실 미리보기 카드들 뒤에 '객실 추가' 카드형 버튼 */}
+          <button
+            type="button"
+            onClick={handleAdd}
+            onDragOver={(e) => {
+              if (!draggingRoomId) return;
+              e.preventDefault();
+            }}
+            onDrop={handleDropOnAddCard}
+            className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50/60 hover:bg-gray-100 hover:border-blue-400 transition-colors text-gray-500 py-8"
+          >
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-white shadow-sm text-blue-600">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </div>
+            <div className="text-center">
+              <div className="text-sm font-semibold text-gray-800">새 객실 추가</div>
+              <div className="mt-1 text-xs text-gray-500">새로운 객실 타입을 등록해보세요.</div>
+            </div>
+          </button>
         </div>
         {rooms.length === 0 && (
           <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-100">
