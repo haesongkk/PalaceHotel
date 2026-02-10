@@ -508,13 +508,7 @@ export default function ChatHistoryModal({ history: initialHistory, onClose, onS
           </div>
 
       <div className="mt-6 border-t border-gray-200 pt-4">
-        <ChatSendPanel
-          userId={history.userId}
-          phone={phoneForAlimtalk}
-          reservationContext={undefined}
-          onChatSent={handleSent}
-          onAlimtalkSent={handleSent}
-        />
+        <ChatSendPanel userId={history.userId} onChatSent={handleSent} />
       </div>
     </AppModal>
   );

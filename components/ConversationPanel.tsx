@@ -390,28 +390,7 @@ export default function ConversationPanel({
 
       <ChatSendPanel
         userId={userId}
-        phone={phoneForAlimtalk}
-        reservationContext={
-          activeReservation && room
-            ? (() => {
-                const isDayUse =
-                  new Date(activeReservation.checkIn).toDateString() ===
-                  new Date(activeReservation.checkOut).toDateString();
-                return {
-                  roomType: room.type,
-                  checkIn: activeReservation.checkIn,
-                  checkOut: activeReservation.checkOut,
-                  totalPrice: activeReservation.totalPrice,
-                  reservationId: activeReservation.id,
-                  memo: history?.memo,
-                  checkInTime: isDayUse ? room.dayUseCheckIn : room.stayCheckIn,
-                  checkOutTime: isDayUse ? room.dayUseCheckOut : room.stayCheckOut,
-                };
-              })()
-            : undefined
-        }
         onChatSent={handleSent}
-        onAlimtalkSent={handleSent}
       />
     </div>
   );

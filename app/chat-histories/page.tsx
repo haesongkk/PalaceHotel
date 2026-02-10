@@ -4,15 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/Layout';
 import { ChatHistory, Reservation, Room } from '@/types';
 import ConversationPanel from '@/components/ConversationPanel';
-import type { AlimtalkTemplateItem } from '@/components/ChatSendPanel';
-
-const TEMPLATE_VAR_REGEX = /#\{([^}]+)\}/g;
-function extractTemplateVariables(content: string): string[] {
-  const set = new Set<string>();
-  let m: RegExpExecArray | null;
-  while ((m = TEMPLATE_VAR_REGEX.exec(content)) !== null) set.add(m[1].trim());
-  return Array.from(set);
-}
 
 export default function ChatHistoriesPage() {
   const [histories, setHistories] = useState<ChatHistory[]>([]);
@@ -29,14 +20,6 @@ export default function ChatHistoriesPage() {
   const [bulkChatIsAd, setBulkChatIsAd] = useState(false);
   const [sendingBulkChat, setSendingBulkChat] = useState(false);
   const [bulkChatError, setBulkChatError] = useState<string | null>(null);
-
-  // 일괄 알림톡 상태
-  const [showBulkAlimtalk, setShowBulkAlimtalk] = useState(false);
-  const [alimTemplates, setAlimTemplates] = useState<AlimtalkTemplateItem[]>([]);
-  const [loadingAlimTemplates, setLoadingAlimTemplates] = useState(false);
-  const [selectedTplCode, setSelectedTplCode] = useState<string>('');
-  const [templateParams, setTemplateParams] = useState<Record<string, string>>({});
-  const [sendingBulkAlimtalk, setSendingBulkAlimtalk] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -162,50 +145,6 @@ export default function ChatHistoriesPage() {
     [selectedHistories]
   );
 
-  const bulkAlimtalkTargets = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const h of selectedHistories) {
-      const phone = getRawPhone(h);
-      if (phone) {
-        map.set(h.userId, phone);
-      }
-    }
-    const targets = Array.from(map.entries()).map(([userId, phone]) => ({
-      userId,
-      phone,
-    }));
-    return {
-      totalSelected: selectedHistories.length,
-      targets,
-    };
-  }, [selectedHistories]);
-
-  const selectedTemplate = useMemo(
-    () => alimTemplates.find((t) => t.templtCode === selectedTplCode),
-    [alimTemplates, selectedTplCode]
-  );
-
-  const paramKeys = useMemo(
-    () => (selectedTemplate ? extractTemplateVariables(selectedTemplate.templtContent) : []),
-    [selectedTemplate]
-  );
-
-  useEffect(() => {
-    if (!showBulkAlimtalk) return;
-    setLoadingAlimTemplates(true);
-    fetch('/api/alimtalk/templates')
-      .then((res) => (res.ok ? res.json() : []))
-      .then((list: AlimtalkTemplateItem[]) => {
-        const sendable = (list ?? []).filter((t) => t.inspStatus === 'APR' && t.status !== 'S');
-        setAlimTemplates(sendable);
-        if (sendable.length > 0 && !selectedTplCode) {
-          setSelectedTplCode(sendable[0].templtCode);
-        }
-      })
-      .catch(() => setAlimTemplates([]))
-      .finally(() => setLoadingAlimTemplates(false));
-  }, [showBulkAlimtalk, selectedTplCode]);
-
   const handleOpenBulkChat = () => {
     if (selectedUserIds.length === 0) {
       alert('선택된 대화가 없습니다.');
@@ -267,52 +206,6 @@ export default function ChatHistoriesPage() {
     }
   };
 
-  const handleOpenBulkAlimtalk = () => {
-    if (bulkAlimtalkTargets.targets.length === 0) {
-      alert('선택된 대화 중 전화번호가 있는 사용자가 없습니다.');
-      return;
-    }
-    setShowBulkAlimtalk(true);
-  };
-
-  const handleSendBulkAlimtalk = async () => {
-    if (!selectedTplCode || bulkAlimtalkTargets.targets.length === 0) return;
-    setSendingBulkAlimtalk(true);
-    try {
-      const res = await fetch('/api/alimtalk/batch-send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tpl_code: selectedTplCode,
-          subject: selectedTemplate?.templtName ?? '알림',
-          params: templateParams,
-          receivers: bulkAlimtalkTargets.targets.map((t) => ({
-            phone: t.phone,
-            userId: t.userId,
-          })),
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.code === 0) {
-        alert(
-          `총 ${bulkAlimtalkTargets.targets.length}명에게 알림톡 발송을 요청했습니다.` +
-            (data.failCount && data.failCount > 0
-              ? ` (실패 ${data.failCount}명)`
-              : '')
-        );
-        setShowBulkAlimtalk(false);
-        setTemplateParams({});
-        setSelectedIds([]);
-      } else {
-        alert(data.message || data.error || '일괄 알림톡 발송에 실패했습니다.');
-      }
-    } catch {
-      alert('일괄 알림톡 발송에 실패했습니다.');
-    } finally {
-      setSendingBulkAlimtalk(false);
-    }
-  };
-
   if (loading) {
     return (
       <Layout>
@@ -340,13 +233,6 @@ export default function ChatHistoriesPage() {
                 className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-xs font-medium hover:bg-blue-700"
               >
                 선택 사용자에게 채팅 보내기
-              </button>
-              <button
-                type="button"
-                onClick={handleOpenBulkAlimtalk}
-                className="px-3 py-1.5 rounded-md bg-green-600 text-white text-xs font-medium hover:bg-green-700"
-              >
-                선택 사용자에게 알림톡 보내기
               </button>
             </div>
           </div>
@@ -528,90 +414,6 @@ export default function ChatHistoriesPage() {
         </div>
       )}
 
-      {showBulkAlimtalk && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => {
-              if (!sendingBulkAlimtalk) setShowBulkAlimtalk(false);
-            }}
-          />
-          <div className="relative z-50 w-full max-w-lg rounded-lg bg-white shadow-lg p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">일괄 알림톡 발송</h2>
-            <p className="text-xs text-gray-600 mb-3">
-              선택된 대화 {bulkAlimtalkTargets.totalSelected}개 중 전화번호가 있는 사용자{' '}
-              {bulkAlimtalkTargets.targets.length}명에게 발송합니다.
-            </p>
-            {loadingAlimTemplates ? (
-              <p className="text-sm text-gray-500">템플릿 불러오는 중…</p>
-            ) : alimTemplates.length === 0 ? (
-              <p className="text-sm text-gray-500">발송 가능한 알림톡 템플릿이 없습니다.</p>
-            ) : (
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    템플릿 선택
-                  </label>
-                  <select
-                    value={selectedTplCode}
-                    onChange={(e) => {
-                      setSelectedTplCode(e.target.value);
-                      setTemplateParams({});
-                    }}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  >
-                    {alimTemplates.map((t) => (
-                      <option key={t.templtCode} value={t.templtCode}>
-                        {t.templtName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {paramKeys.length > 0 && (
-                  <div className="space-y-1">
-                    {paramKeys.map((key) => (
-                      <div key={key} className="flex items-center gap-2">
-                        <span className="text-xs text-gray-600 w-24 shrink-0">#{key}</span>
-                        <input
-                          type="text"
-                          value={templateParams[key] ?? ''}
-                          onChange={(e) =>
-                            setTemplateParams((p) => ({ ...p, [key]: e.target.value }))
-                          }
-                          placeholder={`${key} 입력`}
-                          className="flex-1 rounded border border-gray-300 px-2 py-1.5 text-sm"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => !sendingBulkAlimtalk && setShowBulkAlimtalk(false)}
-                className="px-4 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
-                disabled={sendingBulkAlimtalk}
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={handleSendBulkAlimtalk}
-                disabled={
-                  sendingBulkAlimtalk ||
-                  !selectedTplCode ||
-                  bulkAlimtalkTargets.targets.length === 0
-                }
-                className="px-4 py-2 text-sm rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-              >
-                {sendingBulkAlimtalk ? '발송 중…' : '알림톡 발송'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </Layout>
   );
 }
