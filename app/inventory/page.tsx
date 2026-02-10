@@ -876,7 +876,7 @@ export default function InventoryPage() {
                       </button>
                       <button
                         type="button"
-                        disabled={!createReservationTypeId || createReservationTypeId === 'default'}
+                        disabled={!createReservationTypeId}
                         onClick={() => {
                           const target = reservationTypes.find((t) => t.id === createReservationTypeId);
                           if (!target) return;
@@ -891,23 +891,30 @@ export default function InventoryPage() {
                       </button>
                     </div>
                   </div>
-                  <select
-                    value={createReservationTypeId}
-                    onChange={(e) => setCreateReservationTypeId(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm"
-                    required
-                  >
-                    <option value="">예약 타입을 선택하세요</option>
-                    {reservationTypes.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                  {reservationTypes.length === 0 && (
+                  {reservationTypes.length === 0 ? (
                     <p className="mt-1 text-[11px] text-gray-500">
                       먼저 자주 쓰는 수기 예약 유형을 하나 추가해 주세요.
                     </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {reservationTypes.map((t) => {
+                        const selected = createReservationTypeId === t.id;
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => setCreateReservationTypeId(t.id)}
+                            className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+                              selected
+                                ? `${t.color} border-transparent ring-1 ring-offset-1 ring-blue-500`
+                                : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            {t.name}
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
                   {showNewTypeForm && (
                     <div
@@ -969,19 +976,28 @@ export default function InventoryPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">객실 타입</label>
-                  <select
-                    value={createRoomId}
-                    onChange={(e) => setCreateRoomId(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm"
-                    required
-                  >
-                    <option value="">객실을 선택하세요</option>
-                    {rooms.map((room) => (
-                      <option key={room.id} value={room.id}>
-                        {room.type} (총 {room.inventory})
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex flex-wrap gap-1.5">
+                    {rooms.map((room) => {
+                      const selected = createRoomId === room.id;
+                      return (
+                        <button
+                          key={room.id}
+                          type="button"
+                          onClick={() => setCreateRoomId(room.id)}
+                          className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] ${
+                            selected
+                              ? 'border-blue-500 bg-blue-50 text-blue-700'
+                              : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          <span className="font-medium">{room.type}</span>
+                        </button>
+                      );
+                    })}
+                    {rooms.length === 0 && (
+                      <p className="text-[11px] text-gray-500">등록된 객실이 없습니다.</p>
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
