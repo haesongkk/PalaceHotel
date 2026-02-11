@@ -183,7 +183,7 @@ export default function RoomModal({ room, onClose }: RoomModalProps) {
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-bold text-gray-700 mb-2">
                 대표 이미지
               </label>
               <div
@@ -259,7 +259,7 @@ export default function RoomModal({ room, onClose }: RoomModalProps) {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-bold text-gray-700">
                 객실 타입
               </label>
               <input
@@ -272,7 +272,7 @@ export default function RoomModal({ room, onClose }: RoomModalProps) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-bold text-gray-700">
                 할인율(%)
               </label>
               <input
@@ -288,7 +288,7 @@ export default function RoomModal({ room, onClose }: RoomModalProps) {
               <p className="mt-1 text-xs text-gray-500">0이면 할인 표시가 숨겨집니다.</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-bold text-gray-700">
                 재고(객실 수)
               </label>
               <input
@@ -305,15 +305,15 @@ export default function RoomModal({ room, onClose }: RoomModalProps) {
               <p className="mt-1 text-xs text-gray-500">보유 객실 수를 입력하세요.</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-bold text-gray-700 mb-2">
                 입실/퇴실 시간
               </label>
               <div className="grid grid-cols-2 gap-4 border rounded-md p-4 bg-gray-50">
                 <div>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-3">대실</h4>
+                  <h4 className="text-sm font-bold text-gray-700 mb-3">대실</h4>
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-xs text-gray-600 mb-1">입실시간</label>
+                      <label className="block text-xs font-bold text-gray-600 mb-1">입실시간</label>
                       <input
                         type="time"
                         required
@@ -323,7 +323,7 @@ export default function RoomModal({ room, onClose }: RoomModalProps) {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-600 mb-1">퇴실시간</label>
+                      <label className="block text-xs font-bold text-gray-600 mb-1">퇴실시간</label>
                       <input
                         type="time"
                         required
@@ -335,10 +335,10 @@ export default function RoomModal({ room, onClose }: RoomModalProps) {
                   </div>
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-3">숙박</h4>
+                  <h4 className="text-sm font-bold text-gray-700 mb-3">숙박</h4>
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-xs text-gray-600 mb-1">입실시간</label>
+                      <label className="block text-xs font-bold text-gray-600 mb-1">입실시간</label>
                       <input
                         type="time"
                         required
@@ -348,7 +348,7 @@ export default function RoomModal({ room, onClose }: RoomModalProps) {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-600 mb-1">퇴실시간</label>
+                      <label className="block text-xs font-bold text-gray-600 mb-1">퇴실시간</label>
                       <input
                         type="time"
                         required
@@ -362,20 +362,20 @@ export default function RoomModal({ room, onClose }: RoomModalProps) {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-bold text-gray-700 mb-2">
                 요일별 숙박 및 대실 가격
               </label>
               <div className="border rounded-md overflow-hidden bg-white">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
                         요일
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
                         숙박 가격
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">
                         대실 가격
                       </th>
                     </tr>

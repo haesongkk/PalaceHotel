@@ -75,11 +75,6 @@ export default function ConversationPanel({
   const [showAllMessages, setShowAllMessages] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(source.mode === 'reservation');
   const [loadingReservation, setLoadingReservation] = useState(source.mode === 'chat-history');
-  const [editing, setEditing] = useState(false);
-  const [editName, setEditName] = useState('');
-  const [editPhone, setEditPhone] = useState('');
-  const [editMemo, setEditMemo] = useState('');
-  const [saving, setSaving] = useState(false);
   const [statusChangeMemo, setStatusChangeMemo] = useState('');
   const [adminMemoEdit, setAdminMemoEdit] = useState('');
   const [savingAdminMemo, setSavingAdminMemo] = useState(false);
@@ -121,20 +116,8 @@ export default function ConversationPanel({
   useEffect(() => {
     if (source.mode === 'chat-history' && source.history) {
       setHistory(source.history);
-      setEditName(source.history.userName ?? '');
-      setEditPhone(source.history.userPhone ?? '');
-      setEditMemo(source.history.memo ?? '');
     }
   }, [source.mode, source.mode === 'chat-history' ? source.history : null]);
-
-  // history 로드/변경 시 수정 필드 동기화 (예약 모드에서 fetch 후 포함)
-  useEffect(() => {
-    if (history && !editing) {
-      setEditName(history.userName ?? '');
-      setEditPhone(history.userPhone ?? '');
-      setEditMemo(history.memo ?? '');
-    }
-  }, [history?.id, history?.updatedAt, editing]);
 
   const messages = history?.messages ?? [];
   const activeReservation = source.mode === 'reservation' ? source.reservation : reservation;
@@ -152,22 +135,6 @@ export default function ConversationPanel({
   const hasFilteredDifference = messages.length !== filteredMessages.length && messages.length > 0;
 
   const room = activeReservation ? rooms.find((r) => r.id === activeReservation.roomId) : null;
-  const displayName = history?.userName?.trim() || (userId && userId.length > 8 ? userId.slice(0, 8) : userId) || '';
-  const phone = history?.userPhone?.trim() || '';
-  const phoneForAlimtalk = phone || null;
-  // 예약 모드에서 history 없을 때 상단에는 예약 쪽 이름/번호 표시
-  const rawTopName =
-    source.mode === 'reservation' && activeReservation && !history ? (activeReservation.guestName ?? '') : displayName;
-  const rawTopPhone =
-    source.mode === 'reservation' && activeReservation && !history ? (activeReservation.guestPhone ?? '') : phone;
-  const topMemo = history?.memo?.trim() ?? '';
-
-  const customerInfoParts = [
-    rawTopName?.trim() || '',
-    rawTopPhone?.trim() || '',
-    topMemo,
-  ].filter((v) => v && v.trim().length > 0);
-  const customerInfoLabel = customerInfoParts.length > 0 ? customerInfoParts.join(' · ') : '고객 정보 없음';
 
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleString('ko-KR', {
@@ -217,31 +184,6 @@ export default function ConversationPanel({
       setStatusChangeMemo('');
     } finally {
       setStatusDialogSubmitting(false);
-    }
-  };
-
-  const handleSaveProfile = async () => {
-    if (!history) return;
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/chat-histories/${history.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userName: editName.trim() || undefined,
-          userPhone: editPhone.trim() || undefined,
-          memo: editMemo.trim() || undefined,
-        }),
-      });
-      if (!res.ok) throw new Error('저장 실패');
-      const updated = await res.json();
-      setHistory(updated);
-      onSaved?.(updated);
-      setEditing(false);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -312,78 +254,9 @@ export default function ConversationPanel({
         </button>
       </div>
 
-      {/* 상단: 이름(번호):고객 메모 → 예약 요약 + 버튼/메모 */}
+      {/* 상단: 예약 요약 + 버튼/메모 */}
       <div className="p-4 border-b border-gray-100 space-y-4 bg-gray-50/50">
-        {/* 1. 이름(번호):고객 메모 + 수정 (공통) */}
-        {(history || (source.mode === 'reservation' && activeReservation)) ? (
-          <>
-            {!editing ? (
-              <div className="flex items-center justify-between gap-2 rounded-lg bg-white/80 px-3 py-2 border border-gray-200/80">
-                <p className="text-sm font-medium text-gray-800 whitespace-pre-wrap break-words">
-                  {customerInfoLabel}
-                </p>
-                {history && (
-                  <button
-                    type="button"
-                    onClick={() => setEditing(true)}
-                    className="text-sm font-medium text-blue-600 hover:text-blue-700 shrink-0"
-                  >
-                    수정
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="rounded-xl bg-white border border-gray-200/80 shadow-sm p-3 space-y-2">
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">이름</label>
-                  <input
-                    type="text"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">전화번호</label>
-                  <input
-                    type="text"
-                    value={editPhone}
-                    onChange={(e) => setEditPhone(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">고객 메모</label>
-                  <textarea
-                    value={editMemo}
-                    onChange={(e) => setEditMemo(e.target.value)}
-                    rows={2}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 outline-none resize-none"
-                  />
-                </div>
-                <div className="flex gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={handleSaveProfile}
-                    disabled={saving || !history}
-                    className="px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {saving ? '저장 중…' : '저장'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setEditing(false); setEditName(history?.userName ?? ''); setEditPhone(history?.userPhone ?? ''); setEditMemo(history?.memo ?? ''); }}
-                    className="px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200"
-                  >
-                    취소
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
-        ) : null}
-
-        {/* 2. 예약 관리에서만: 예약 요약 + 예약 메모 + 수기면 삭제만, 아니면 확정/거절/취소 */}
+        {/* 예약 관리에서만: 예약 요약 + 예약 메모 + 수기면 삭제만, 아니면 확정/거절/취소 */}
         {activeReservation && source.mode === 'reservation' && (
           <div className="rounded-xl bg-white border border-gray-200/80 shadow-sm p-3 space-y-2">
             <div className="flex items-center justify-between gap-2">
@@ -432,55 +305,6 @@ export default function ConversationPanel({
                 </button>
               </div>
             </div>
-            {activeReservation.source === 'manual' ? (
-              <div className="flex flex-wrap gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={handleDeleteReservation}
-                  className="px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
-                >
-                  삭제
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2 pt-1">
-                {activeReservation.status === 'pending' && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => handleStatusChange('confirmed')}
-                      className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                    >
-                      확정
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setStatusChangeMemo('');
-                        setStatusDialogStatus('rejected');
-                        setStatusDialogOpen(true);
-                      }}
-                      className="px-4 py-2 text-sm font-medium rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
-                    >
-                      거절
-                    </button>
-                  </>
-                )}
-                {activeReservation.status === 'confirmed' && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStatusChangeMemo('');
-                      setStatusDialogStatus('cancelled_by_admin');
-                      setStatusDialogOpen(true);
-                    }}
-                    className="px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
-                  >
-                    취소
-                  </button>
-                )}
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -532,6 +356,67 @@ export default function ConversationPanel({
             </ul>
           </>
         )}
+      </div>
+
+      {/* 하단: 채팅 입력 (예약 모드 시 버튼은 ChatSendPanel header에) */}
+      <div className="border-t border-gray-200/80 bg-white shrink-0">
+        <ChatSendPanel
+          userId={userId}
+          onChatSent={handleSent}
+          header={
+            activeReservation && source.mode === 'reservation' ? (
+              <div className="flex flex-wrap gap-2 justify-center">
+                {activeReservation.source === 'manual' ? (
+                  <button
+                    type="button"
+                    onClick={handleDeleteReservation}
+                    className="px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+                  >
+                    삭제
+                  </button>
+                ) : (
+                  <>
+                    {activeReservation.status === 'pending' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleStatusChange('confirmed')}
+                          className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                        >
+                          확정
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStatusChangeMemo('');
+                            setStatusDialogStatus('rejected');
+                            setStatusDialogOpen(true);
+                          }}
+                          className="px-4 py-2 text-sm font-medium rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+                        >
+                          거절
+                        </button>
+                      </>
+                    )}
+                    {activeReservation.status === 'confirmed' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStatusChangeMemo('');
+                          setStatusDialogStatus('cancelled_by_admin');
+                          setStatusDialogOpen(true);
+                        }}
+                        className="px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+                      >
+                        취소
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            ) : undefined
+          }
+        />
       </div>
 
       {statusDialogOpen && statusDialogStatus && (
@@ -592,11 +477,6 @@ export default function ConversationPanel({
           </div>
         </div>
       )}
-
-      <ChatSendPanel
-        userId={userId}
-        onChatSent={handleSent}
-      />
     </div>
   );
 }

@@ -7,9 +7,11 @@ interface ChatSendPanelProps {
   userId: string | null;
   /** 채팅 발송 후 콜백 */
   onChatSent?: () => void;
+  /** 입력 영역 위에 표시할 콘텐츠 (예: 예약 액션 버튼) */
+  header?: React.ReactNode;
 }
 
-export default function ChatSendPanel({ userId, onChatSent }: ChatSendPanelProps) {
+export default function ChatSendPanel({ userId, onChatSent, header }: ChatSendPanelProps) {
   const [chatText, setChatText] = useState('');
   const [sendingChat, setSendingChat] = useState(false);
 
@@ -38,9 +40,9 @@ export default function ChatSendPanel({ userId, onChatSent }: ChatSendPanelProps
 
   return (
     <div className="border-t bg-gray-50 p-4 space-y-4">
+      {header && <div className="mb-2">{header}</div>}
       {userId && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">채팅 입력 (이벤트 API)</label>
           <div className="flex gap-2">
             <textarea
               value={chatText}
