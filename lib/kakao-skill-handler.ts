@@ -665,18 +665,36 @@ export function handleKakaoSkillRequest(req: KakaoSkillRequest): KakaoSkillRespo
 
 /**
  * 객실 선택 시 임시 예약 정보 저장.
- * 이미 저장된 전화번호(userPhone)가 있으면 전화번호 입력 없이 바로 예약 완료, 없으면 전화번호 입력 요청.
+ * 재고 확인 후 전화번호 입력 요청(또는 저장된 전화번호 있으면 바로 예약 완료).
  */
 function handleRoomSelection(req: KakaoSkillRequest): KakaoSkillResponse {
   const extra = req.action?.clientExtra ?? {};
   const userId = req.userRequest?.user?.id ?? '';
+  const roomId = extra.roomId as string;
+  const checkIn = new Date(extra.checkIn as string).toISOString();
+  const checkOut = new Date(extra.checkOut as string).toISOString();
+  const totalPrice = extra.totalPrice as number;
+
+  // 재고 확인 (전화번호 입력 전에 먼저 체크)
+  const isAvailable = dataStore.isRoomAvailable(roomId, checkIn, checkOut);
+  if (!isAvailable) {
+    const message =
+      '죄송합니다. 선택하신 날짜에는 남은 객실이 없습니다.\n' +
+      '다른 날짜를 선택하시거나 객실 타입을 변경해서 다시 시도해 주세요.';
+    return {
+      version: '2.0',
+      template: {
+        outputs: [simpleText(message)],
+      },
+    };
+  }
 
   // 임시 예약 정보 저장
   dataStore.savePendingReservation(userId, {
-    roomId: extra.roomId as string,
-    checkIn: new Date(extra.checkIn as string).toISOString(),
-    checkOut: new Date(extra.checkOut as string).toISOString(),
-    totalPrice: extra.totalPrice as number,
+    roomId,
+    checkIn,
+    checkOut,
+    totalPrice,
   });
 
   // 유저별 저장 전화번호가 있으면 전화번호 입력 단계 스킵 후 바로 예약 완료 (고객 정보는 Customer에서 조회)

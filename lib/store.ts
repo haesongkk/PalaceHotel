@@ -133,9 +133,7 @@ class DataStore {
       },
     ];
 
-    // 더미 고객 생성 후 예약 데이터 (정규화: 예약은 customerId만 보관)
-    const dummyCustomers = this.buildDummyCustomers();
-    this.reservations = this.buildFebruaryDummyReservations(dummyCustomers);
+    // 예약 데이터는 빈 배열로 시작 (수기/카카오 예약만 추가됨)
 
     // 샘플 챗봇 멘트 데이터 (10가지 상황 모두 초기화)
     const situations: ChatbotSituation[] = [
@@ -189,94 +187,6 @@ class DataStore {
         this.templateActiveMapping.set(displayName, tplCode);
       }
     });
-  }
-
-  /** 더미 예약용 고객 여러 명 생성 (정규화: 고객은 별도 테이블) */
-  private buildDummyCustomers(): Customer[] {
-    const now = new Date().toISOString();
-    const list: Customer[] = [
-      { id: 'dummy-cust-1', name: '더미고객1', phone: '010-1111-1111', createdAt: now, updatedAt: now },
-      { id: 'dummy-cust-2', name: '더미고객2', phone: '010-2222-2222', createdAt: now, updatedAt: now },
-      { id: 'dummy-cust-3', name: '더미고객3', phone: '010-3333-3333', createdAt: now, updatedAt: now },
-      { id: 'dummy-cust-4', name: '더미고객4', phone: '010-4444-4444', createdAt: now, updatedAt: now },
-      { id: 'dummy-cust-5', name: '더미고객5', phone: '010-5555-5555', createdAt: now, updatedAt: now },
-    ];
-    list.forEach((c) => this.customers.push(c));
-    return list;
-  }
-
-  private buildFebruaryDummyReservations(dummyCustomers: Customer[]): Reservation[] {
-    const year = new Date().getFullYear();
-    const toISO = (y: number, m: number, d: number) =>
-      new Date(y, m - 1, d, 12, 0, 0).toISOString();
-
-    type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
-    const getDayKey = (date: Date): DayOfWeek => {
-      const map: DayOfWeek[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-      return map[date.getDay()];
-    };
-
-    const calcPrice = (room: Room, checkIn: string, checkOut: string): number => {
-      const start = new Date(checkIn);
-      const end = new Date(checkOut);
-      let total = 0;
-      for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
-        const key = getDayKey(d);
-        total += room.prices[key]?.stayPrice ?? 30000;
-      }
-      return total || 30000;
-    };
-
-    const dummySpecs: Array<{ roomId: string; checkIn: [number, number]; checkOut: [number, number]; memo?: string }> = [
-      { roomId: '1', checkIn: [year, 201], checkOut: [year, 202], memo: '전화 예약' },
-      { roomId: '2', checkIn: [year, 203], checkOut: [year, 205], memo: 'OTA 예약' },
-      { roomId: '3', checkIn: [year, 205], checkOut: [year, 207] },
-      { roomId: '4', checkIn: [year, 207], checkOut: [year, 208], memo: '단체 할인' },
-      { roomId: '1', checkIn: [year, 208], checkOut: [year, 210] },
-      { roomId: '2', checkIn: [year, 210], checkOut: [year, 212], memo: '회원 할인' },
-      { roomId: '3', checkIn: [year, 212], checkOut: [year, 214] },
-      { roomId: '4', checkIn: [year, 214], checkOut: [year, 216], memo: '전화 예약' },
-      { roomId: '1', checkIn: [year, 215], checkOut: [year, 216] },
-      { roomId: '2', checkIn: [year, 217], checkOut: [year, 219], memo: '대실' },
-      { roomId: '3', checkIn: [year, 218], checkOut: [year, 220] },
-      { roomId: '4', checkIn: [year, 220], checkOut: [year, 222], memo: 'OTA 예약' },
-      { roomId: '1', checkIn: [year, 221], checkOut: [year, 223] },
-      { roomId: '2', checkIn: [year, 223], checkOut: [year, 225], memo: '주말 예약' },
-      { roomId: '3', checkIn: [year, 225], checkOut: [year, 227] },
-      { roomId: '4', checkIn: [year, 227], checkOut: [year, 228], memo: '전화 예약' },
-      { roomId: '1', checkIn: [year, 228], checkOut: [year, 301] },
-    ];
-
-    const base = Date.now();
-    const list: Reservation[] = [];
-    for (let i = 0; i < dummySpecs.length; i++) {
-      const s = dummySpecs[i];
-      const [y, mdIn] = s.checkIn;
-      const [_, mdOut] = s.checkOut;
-      const mIn = Math.floor(mdIn / 100);
-      const dIn = mdIn % 100;
-      const mOut = Math.floor(mdOut / 100);
-      const dOut = mdOut % 100;
-      const checkIn = toISO(y, mIn, dIn);
-      const checkOut = toISO(y, mOut, dOut);
-      const room = this.rooms.find((r) => r.id === s.roomId);
-      const totalPrice = room ? calcPrice(room, checkIn, checkOut) : 50000;
-      const customer = dummyCustomers[i % dummyCustomers.length];
-      list.push({
-        id: `dummy-feb-${i + 1}-${base}`,
-        roomId: s.roomId,
-        customerId: customer.id,
-        checkIn,
-        checkOut,
-        status: 'confirmed',
-        totalPrice,
-        source: 'manual',
-        reservationTypeId: 'default',
-        adminMemo: s.memo,
-        createdAt: toISO(y, 1, 1),
-      });
-    }
-    return list;
   }
 
   // 객실 관련 메서드
