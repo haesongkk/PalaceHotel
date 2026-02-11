@@ -10,14 +10,25 @@ interface ChatbotMessageModalProps {
 
 const situationLabels: Record<ChatbotSituation, string> = {
   channel_added: '채널 추가시',
-  today_day_use: '오늘대실 선택시',
-  today_stay: '오늘숙박 선택시',
-  saturday_reservation: '토요일예약 선택시',
+  today_day_use: '오늘 대실 선택시',
+  today_stay: '오늘 숙박 선택시',
+  saturday_reservation: '토요일 예약 선택시',
   make_reservation: '예약하기 선택시',
   phone_input_request: '전화번호 입력 요청시',
-  reservation_request: '예약 요청시',
+  reservation_request: '예약 요청 접수시',
   reservation_inquiry: '예약내역 조회시',
-  reservation_cancel: '예약 취소시',
+  reservation_cancel: '예약 취소 완료시',
+  default_greeting: '기본 인사',
+  reservation_empty: '예약 내역 없음',
+  reservation_not_found: '해당 예약 없음',
+  reservation_already_cancelled: '이미 취소된 예약',
+  reservation_cancelled_by_user: '예약 진행 중 취소',
+  phone_format_error: '전화번호 형식 오류',
+  room_sold_out: '재고 없음 안내',
+  saturday_day_use_confirm: '토요일 대실 선택시',
+  saturday_stay_confirm: '토요일 숙박 선택시',
+  date_select_stay: '숙박 날짜선택 후',
+  date_select_day_use: '대실 날짜선택 후',
 };
 
 export default function ChatbotMessageModal({ message, onClose }: ChatbotMessageModalProps) {
