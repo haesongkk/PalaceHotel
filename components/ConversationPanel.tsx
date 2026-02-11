@@ -167,6 +167,10 @@ export default function ConversationPanel({
           setReservation(next);
         }
         onStatusChange?.();
+        // 예약 목록에서 열린 "대화 및 예약" 패널이라면 상태 변경 후 패널을 닫아준다.
+        if (source.mode === 'reservation') {
+          onClose();
+        }
       } else {
         alert('상태 변경에 실패했습니다.');
       }

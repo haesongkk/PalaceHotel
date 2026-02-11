@@ -68,7 +68,9 @@ export async function PUT(
     const checkInTime = room ? (isDayUse ? room.dayUseCheckIn : room.stayCheckIn) : undefined;
     const checkOutTime = room ? (isDayUse ? room.dayUseCheckOut : room.stayCheckOut) : undefined;
 
-    const guestPhone = (await dataStore.getCustomer(reservation.customerId))?.phone;
+    const customer = await dataStore.getCustomer(reservation.customerId);
+    const guestPhone = customer?.phone;
+    const userIdForChat = customer?.userId;
     if (
       newStatus &&
       oldStatus === 'pending' &&
@@ -86,7 +88,8 @@ export async function PUT(
             checkInTime,
             checkOutTime,
             memo: newStatus === 'rejected' ? statusChangeMemo : undefined,
-          }
+          },
+          { userIdForChat }
         ).catch((error) => {
           console.error(`[알림톡 발송 실패] 예약 ${reservation.id} ${newStatus}`, error);
         });
@@ -94,14 +97,18 @@ export async function PUT(
     }
 
     if (newStatus === 'cancelled_by_admin' && guestPhone) {
-      sendReservationCancelledByAdminAlimtalk(guestPhone, {
-        roomType,
-        checkIn: reservation.checkIn,
-        checkOut: reservation.checkOut,
-        checkInTime,
-        checkOutTime,
-        memo: statusChangeMemo,
-      }).catch((error) => {
+      sendReservationCancelledByAdminAlimtalk(
+        guestPhone,
+        {
+          roomType,
+          checkIn: reservation.checkIn,
+          checkOut: reservation.checkOut,
+          checkInTime,
+          checkOutTime,
+          memo: statusChangeMemo,
+        },
+        { userIdForChat }
+      ).catch((error) => {
         console.error(`[알림톡 발송 실패] 예약 ${reservation.id} 취소 안내`, error);
       });
     }

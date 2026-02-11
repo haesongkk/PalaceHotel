@@ -265,6 +265,7 @@ function formatDateForAlimtalk(dateString: string): string {
 
 import { dataStore } from '@/lib/store';
 import { toInternalTemplateName } from '@/lib/alimtalk-config';
+import type { ChatMessage } from '@/types';
 
 /** 표시 이름 기준 템플릿 상수 */
 const DISPLAY_NAME_RESERVATION_REQUEST = '예약 요청 알림';
@@ -362,7 +363,8 @@ export async function sendReservationStatusAlimtalk(
     checkOutTime?: string;
     /** 관리자 메모 (템플릿 변수: #{memo}) */
     memo?: string;
-  }
+  },
+  options?: { userIdForChat?: string }
 ): Promise<SendAlimtalkResult> {
   const templateName = status === 'confirmed' ? DISPLAY_NAME_CONFIRMED : DISPLAY_NAME_REJECTED;
   const tplCode = await getTemplateCodeByDisplayName(templateName);
@@ -395,12 +397,25 @@ export async function sendReservationStatusAlimtalk(
     message = message.replace(/#{totalPrice}/g, reservationInfo.totalPrice.toLocaleString());
   }
   const subject = status === 'confirmed' ? '예약 확정 안내' : '예약 안내';
-  return sendAlimtalk({
+  const result = await sendAlimtalk({
     tpl_code: tplCode,
     receiver: phoneNumber,
     subject,
     message,
   });
+  // 알림톡이 정상적으로 발송되었다면(또는 최소한 API 호출이 성공했다면) 대화 내역에 기록
+  if (options?.userIdForChat) {
+    const chatMessage: Omit<ChatMessage, 'id' | 'timestamp'> = {
+      sender: 'bot',
+      content: `[알림톡] ${subject}\n\n${message}`,
+    };
+    try {
+      await dataStore.addMessageToHistory(options.userIdForChat, chatMessage);
+    } catch (e) {
+      console.error('[알림톡] 대화 내역 저장 실패', e);
+    }
+  }
+  return result;
 }
 
 /**
@@ -454,7 +469,8 @@ export async function sendReservationCancelledByAdminAlimtalk(
     checkOutTime?: string;
     /** 관리자 메모 (템플릿 변수: #{memo}) */
     memo?: string;
-  }
+  },
+  options?: { userIdForChat?: string }
 ): Promise<SendAlimtalkResult> {
   const tplCode = await getTemplateCodeByDisplayName(DISPLAY_NAME_CANCELLED_BY_ADMIN);
   if (!tplCode) {
@@ -482,10 +498,22 @@ export async function sendReservationCancelledByAdminAlimtalk(
     .replace(/#{checkInTime}/g, checkInTime)
     .replace(/#{checkOutTime}/g, checkOutTime)
     .replace(/#{memo}/g, memo);
-  return sendAlimtalk({
+  const result = await sendAlimtalk({
     tpl_code: tplCode,
     receiver: phoneNumber,
     subject: '예약 취소 안내',
     message,
   });
+  if (options?.userIdForChat) {
+    const chatMessage: Omit<ChatMessage, 'id' | 'timestamp'> = {
+      sender: 'bot',
+      content: `[알림톡] 예약 취소 안내\n\n${message}`,
+    };
+    try {
+      await dataStore.addMessageToHistory(options.userIdForChat, chatMessage);
+    } catch (e) {
+      console.error('[알림톡] 취소 안내 대화 내역 저장 실패', e);
+    }
+  }
+  return result;
 }

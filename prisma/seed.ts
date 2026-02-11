@@ -1,6 +1,15 @@
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 
-const prisma = new PrismaClient();
+const url = process.env.DATABASE_URL?.trim() ?? '';
+
+if (!url) {
+  throw new Error('DATABASE_URL이 설정되지 않았습니다. .env에 Render PostgreSQL(또는 사용할 DB) URL을 설정하세요.');
+}
+
+const adapter = new PrismaPg({ connectionString: url });
+const prisma = new PrismaClient({ adapter });
 
 const CHATBOT_SITUATIONS = [
   { situation: 'channel_added', description: '사용자가 카카오톡 채널을 추가했을 때 표시되는 환영 메시지입니다.', message: '안녕하세요! 호텔 예약 챗봇입니다. 무엇을 도와드릴까요?' },
