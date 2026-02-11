@@ -111,9 +111,12 @@ export async function getKakaoEventTaskResult(params: {
       'Content-Type': 'application/json',
     },
   });
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.message || '결과 조회 실패');
+    const msg = data && typeof data === 'object' && typeof (data as { message?: string }).message === 'string'
+      ? (data as { message: string }).message
+      : '결과 조회 실패';
+    throw new Error(msg);
   }
   return data;
 }

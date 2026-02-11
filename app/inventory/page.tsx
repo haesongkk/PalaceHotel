@@ -210,9 +210,12 @@ export default function InventoryPage() {
         fetch('/api/reservations'),
         fetch('/api/reservation-types'),
       ]);
-      const roomsData: Room[] = await roomsRes.json();
-      const reservationsData: ReservationWithGuest[] = await reservationsRes.json();
-      const typesData: ReservationType[] = await typesRes.json();
+      const roomsRaw = await roomsRes.json().catch(() => []);
+      const reservationsRaw = await reservationsRes.json().catch(() => []);
+      const typesRaw = await typesRes.json().catch(() => []);
+      const roomsData = Array.isArray(roomsRaw) ? roomsRaw : [];
+      const reservationsData = Array.isArray(reservationsRaw) ? reservationsRaw : [];
+      const typesData = Array.isArray(typesRaw) ? typesRaw : [];
       setRooms(roomsData);
       setReservations(reservationsData);
       setReservationTypes(typesData);
@@ -221,7 +224,7 @@ export default function InventoryPage() {
         setSelectedDate(new Date());
       }
     } catch (error) {
-      console.error('Failed to fetch inventory data:', error);
+      console.error('[재고] 데이터 로드 실패', error);
     } finally {
       setLoading(false);
     }
@@ -239,10 +242,11 @@ export default function InventoryPage() {
           `/api/inventory-adjustments?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
         );
         if (!res.ok) return;
-        const json: { items?: RoomInventoryAdjustment[] } = await res.json();
-        setInventoryAdjustments(json.items ?? []);
+        const json = await res.json().catch(() => ({}));
+        const items = json?.items;
+        setInventoryAdjustments(Array.isArray(items) ? items : []);
       } catch (error) {
-        console.error('Failed to fetch inventory adjustments for month:', error);
+        console.error('[재고] 월별 조정 로드 실패', error);
       }
     };
 
@@ -316,7 +320,7 @@ export default function InventoryPage() {
         return [...others, { roomId: room.id, date: selectedDateKey, delta: nextDelta }];
       });
     } catch (error) {
-      console.error('Failed to save inventory adjustment:', error);
+      console.error('[재고] 조정 저장 실패', error);
       alert('재고 조정 저장에 실패했습니다. 잠시 후 다시 시도해주세요.');
     }
   };
@@ -406,7 +410,7 @@ export default function InventoryPage() {
       }
       await fetchData();
     } catch (e) {
-      console.error(e);
+      console.error('[재고] 예약 상태 변경 실패', e);
       alert('상태 변경에 실패했습니다.');
     } finally {
       setActionLoadingId(null);
@@ -450,7 +454,7 @@ export default function InventoryPage() {
       }
       await fetchData();
     } catch (e) {
-      console.error(e);
+      console.error('[재고] 예약 삭제 실패', e);
       alert('삭제에 실패했습니다.');
     } finally {
       setActionLoadingId(null);
@@ -550,7 +554,7 @@ export default function InventoryPage() {
       await fetchData();
       alert('수기 예약이 추가되었습니다.');
     } catch (error) {
-      console.error(error);
+      console.error('[재고] 예약 생성 실패', error);
       alert('예약 생성에 실패했습니다.');
     } finally {
       setCreating(false);
@@ -574,12 +578,12 @@ export default function InventoryPage() {
           body: JSON.stringify(payload),
         }
       );
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        const data = await res.json().catch(() => null);
         alert(data?.error ?? '예약 타입 생성에 실패했습니다.');
         return;
       }
-      const savedType = await res.json();
+      const savedType = data && typeof data === 'object' ? data : null;
       setNewTypeName('');
       setNewTypeColor(PRESET_TYPE_COLORS[0]?.className ?? '');
       setEditingTypeId(null);
@@ -589,7 +593,7 @@ export default function InventoryPage() {
         setShowNewTypeForm(false);
       }
     } catch (error) {
-      console.error(error);
+      console.error('[재고] 예약 타입 저장 실패', error);
       alert('예약 타입 생성에 실패했습니다.');
     } finally {
       setTypeSubmitting(false);

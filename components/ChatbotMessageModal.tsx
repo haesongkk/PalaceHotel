@@ -64,7 +64,7 @@ export default function ChatbotMessageModal({ message, onClose }: ChatbotMessage
       });
       if (res.ok) {
         const r = await fetch(`/api/chatbot-messages/${message.situation}/history`);
-        const d = await r.json();
+        const d = await r.json().catch(() => []);
         setHistory(Array.isArray(d) ? d : []);
       }
     } catch {

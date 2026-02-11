@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { dataStore } from '@/lib/store';
+import type { ChatHistory } from '@/types';
 
-function expandChatHistoryWithCustomer(
-  h: ReturnType<typeof dataStore.getChatHistories>[0]
-) {
-  const customer = dataStore.getCustomer(h.customerId);
+async function expandChatHistoryWithCustomer(h: ChatHistory) {
+  const customer = await dataStore.getCustomer(h.customerId);
   return {
     ...h,
     userId: customer?.userId ?? '',
@@ -18,11 +17,11 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const history = dataStore.getChatHistory(params.id);
+  const history = await dataStore.getChatHistory(params.id);
   if (!history) {
     return NextResponse.json({ error: 'Chat history not found' }, { status: 404 });
   }
-  return NextResponse.json(expandChatHistoryWithCustomer(history));
+  return NextResponse.json(await expandChatHistoryWithCustomer(history));
 }
 
 /** 이름·전화번호·메모는 모두 고객(customerId) 마스터에서 수정 */
@@ -30,12 +29,12 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const history = dataStore.getChatHistory(params.id);
+  const history = await dataStore.getChatHistory(params.id);
   if (!history) {
     return NextResponse.json({ error: 'Chat history not found' }, { status: 404 });
   }
   const body = await request.json();
-  const customer = dataStore.getCustomer(history.customerId);
+  const customer = await dataStore.getCustomer(history.customerId);
   if (!customer) {
     return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
   }
@@ -46,9 +45,9 @@ export async function PATCH(
   if (typeof body.memo === 'string') updates.memo = body.memo;
 
   if (Object.keys(updates).length > 0) {
-    dataStore.updateCustomer(customer.id, updates);
+    await dataStore.updateCustomer(customer.id, updates);
   }
 
-  const updatedHistory = dataStore.getChatHistory(params.id)!;
-  return NextResponse.json(expandChatHistoryWithCustomer(updatedHistory));
+  const updatedHistory = (await dataStore.getChatHistory(params.id))!;
+  return NextResponse.json(await expandChatHistoryWithCustomer(updatedHistory));
 }

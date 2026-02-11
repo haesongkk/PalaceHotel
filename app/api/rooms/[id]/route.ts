@@ -5,7 +5,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const room = dataStore.getRoom(params.id);
+  const room = await dataStore.getRoom(params.id);
   if (!room) {
     return NextResponse.json({ error: 'Room not found' }, { status: 404 });
   }
@@ -18,7 +18,7 @@ export async function PUT(
 ) {
   try {
     const body = await request.json();
-    const room = dataStore.updateRoom(params.id, body);
+    const room = await dataStore.updateRoom(params.id, body);
     if (!room) {
       return NextResponse.json({ error: 'Room not found' }, { status: 404 });
     }
@@ -32,7 +32,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const success = dataStore.deleteRoom(params.id);
+  const success = await dataStore.deleteRoom(params.id);
   if (!success) {
     return NextResponse.json({ error: 'Room not found' }, { status: 404 });
   }

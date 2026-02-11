@@ -28,7 +28,7 @@
 - **프레임워크**: Next.js 14 (App Router)
 - **언어**: TypeScript
 - **스타일링**: Tailwind CSS
-- **데이터 저장**: 메모리 (인메모리 저장소)
+- **데이터 저장**: 메모리 (기본) 또는 PostgreSQL (DATABASE_URL 설정 시)
 
 ## 시작하기
 
@@ -45,6 +45,26 @@ npm run dev
 ```
 
 브라우저에서 [http://localhost:3000](http://localhost:3000)을 열어 확인하세요.
+
+### PostgreSQL 사용 (선택)
+
+`.env`에 `DATABASE_URL`이 설정되어 있으면 PostgreSQL을 사용합니다.
+
+1. `.env`에 연결 문자열 추가:
+   - 직접 연결: `postgresql://user:password@localhost:5432/palace_hotel`
+   - Prisma Postgres: `prisma dev` 실행 후 생성된 `prisma+postgres://...` URL
+
+2. 마이그레이션 적용:
+   ```bash
+   npm run db:migrate
+   ```
+
+3. 시드 데이터 입력:
+   ```bash
+   npm run db:seed
+   ```
+
+4. DB GUI (선택): `npm run db:studio`
 
 ### 빌드
 

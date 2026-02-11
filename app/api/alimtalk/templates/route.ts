@@ -18,7 +18,7 @@ export async function GET() {
 
 /**
  * POST: 신규 템플릿 생성
- * body: { displayName, tpl_content } 또는 legacy { tpl_name, tpl_content, ... }
+ * body: { displayName, tpl_content } 또는 { tpl_name, tpl_content, ... }
  * displayName 있으면 내부 등록용 이름 = displayName_sanitized + timestamp
  */
 export async function POST(request: NextRequest) {
@@ -54,8 +54,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (displayName) {
-      dataStore.addTemplateHistory(displayName, data.templtCode, data.templtContent);
-      dataStore.setTemplateActive(displayName, data.templtCode);
+      await dataStore.addTemplateHistory(displayName, data.templtCode, data.templtContent);
+      await dataStore.setTemplateActive(displayName, data.templtCode);
     }
     return NextResponse.json(data);
   } catch (error) {

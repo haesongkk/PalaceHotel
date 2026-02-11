@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { Suspense, useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Layout from '@/components/Layout';
 import { formatStayLabel } from '@/lib/reservation-utils';
@@ -67,7 +67,7 @@ function sortReservations<T extends Reservation>(list: T[], activeFilter: Filter
   return [...list].sort(byCreatedDesc);
 }
 
-export default function ReservationsPage() {
+function ReservationsPageContent() {
   const [reservations, setReservations] = useState<ReservationWithGuest[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [reservationTypes, setReservationTypes] = useState<ReservationType[]>([]);
@@ -93,15 +93,17 @@ export default function ReservationsPage() {
         fetch('/api/rooms'),
         fetch('/api/reservation-types'),
       ]);
-      const reservationsData: ReservationWithGuest[] = await reservationsRes.json();
-      const roomsData: Room[] = await roomsRes.json();
-      const typesData: ReservationType[] = await typesRes.json();
-      // 모든 예약을 표시 (카카오 + 수기 예약 등)
+      const reservationsRaw = await reservationsRes.json().catch(() => []);
+      const roomsRaw = await roomsRes.json().catch(() => []);
+      const typesRaw = await typesRes.json().catch(() => []);
+      const reservationsData = Array.isArray(reservationsRaw) ? reservationsRaw : [];
+      const roomsData = Array.isArray(roomsRaw) ? roomsRaw : [];
+      const typesData = Array.isArray(typesRaw) ? typesRaw : [];
       setReservations(reservationsData);
       setRooms(roomsData);
       setReservationTypes(typesData);
     } catch (error) {
-      console.error('Failed to fetch data:', error);
+      console.error('[예약 관리] 로드 실패', error);
     } finally {
       setLoading(false);
     }
@@ -133,8 +135,9 @@ export default function ReservationsPage() {
     pollIntervalRef.current = setInterval(async () => {
       try {
         const res = await fetch('/api/reservations');
-        const data: ReservationWithGuest[] = await res.json();
-        const currentPendingIds = new Set(data.filter((r) => r.status === 'pending').map((r) => r.id));
+        const raw = await res.json().catch(() => []);
+        const data = Array.isArray(raw) ? raw : [];
+        const currentPendingIds = new Set(data.filter((r) => r?.status === 'pending').map((r) => r.id));
         const prev = lastPendingIdsRef.current;
         const hasNewPending = [...currentPendingIds].some((id) => !prev.has(id));
         if (hasNewPending && currentPendingIds.size > 0) {
@@ -493,5 +496,13 @@ export default function ReservationsPage() {
         </>
       )}
     </Layout>
+  );
+}
+
+export default function ReservationsPage() {
+  return (
+    <Suspense fallback={<Layout><div className="p-6">로딩 중...</div></Layout>}>
+      <ReservationsPageContent />
+    </Suspense>
   );
 }

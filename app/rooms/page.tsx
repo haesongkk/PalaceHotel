@@ -153,12 +153,14 @@ export default function RoomsPage() {
         fetch('/api/rooms'),
         fetch('/api/reservations'),
       ]);
-      const roomsData: Room[] = await roomsRes.json();
-      const reservationsData: ReservationWithGuest[] = await reservationsRes.json();
-      setRooms(roomsData);
-      setReservations(reservationsData);
+      const roomsRaw = await roomsRes.json();
+      const reservationsRaw = await reservationsRes.json();
+      setRooms(Array.isArray(roomsRaw) ? roomsRaw : []);
+      setReservations(Array.isArray(reservationsRaw) ? reservationsRaw : []);
     } catch (error) {
-      console.error('Failed to fetch rooms:', error);
+      console.error('[객실] 로드 실패', error);
+      setRooms([]);
+      setReservations([]);
     } finally {
       setLoading(false);
     }
@@ -186,10 +188,11 @@ export default function RoomsPage() {
     try {
       const res = await fetch(`/api/inventory-adjustments?date=${encodeURIComponent(dateKey)}`);
       if (!res.ok) return;
-      const json: { items?: RoomInventoryAdjustment[] } = await res.json();
-      setInventoryAdjustments(json.items ?? []);
+      const json = await res.json().catch(() => ({}));
+      const items = json?.items;
+      setInventoryAdjustments(Array.isArray(items) ? items : []);
     } catch (error) {
-      console.error('Failed to fetch inventory adjustments:', error);
+      console.error('[객실] 재고 조정 로드 실패', error);
     }
   };
 
@@ -210,7 +213,7 @@ export default function RoomsPage() {
         ),
       );
     } catch (error) {
-      console.error('Failed to persist room order:', error);
+      console.error('[객실] 순서 저장 실패', error);
       alert('객실 순서 저장에 실패했습니다. 다시 시도해주세요.');
       fetchRooms();
     }
@@ -240,7 +243,7 @@ export default function RoomsPage() {
         alert('삭제에 실패했습니다.');
       }
     } catch (error) {
-      console.error('Failed to delete room:', error);
+      console.error('[객실] 삭제 실패', error);
       alert('삭제에 실패했습니다.');
     }
   };
@@ -402,7 +405,7 @@ export default function RoomsPage() {
         return [...others, { roomId: room.id, date: selectedDateKey, delta: nextDelta }];
       });
     } catch (error) {
-      console.error('Failed to save inventory adjustment:', error);
+      console.error('[객실] 재고 조정 저장 실패', error);
       // eslint-disable-next-line no-alert
       alert('재고 조정 저장에 실패했습니다. 잠시 후 다시 시도해주세요.');
     }
@@ -506,6 +509,25 @@ export default function RoomsPage() {
           </div>
         </div>
 
+        {rooms.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 px-4 bg-white rounded-xl shadow-sm border border-gray-100">
+            <svg className="h-14 w-14 text-gray-400 mb-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+            <p className="text-gray-600 text-lg font-medium">등록된 객실이 없습니다.</p>
+            <p className="text-gray-400 text-sm mt-1">새로운 객실을 추가해보세요.</p>
+            <button
+              type="button"
+              onClick={handleAdd}
+              className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              새 객실 추가
+            </button>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {rooms.map((room) => {
             const price = getPreviewPrice(room);
@@ -681,14 +703,6 @@ export default function RoomsPage() {
             </div>
           </button>
         </div>
-        {rooms.length === 0 && (
-          <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-100">
-            <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
-            <p className="text-gray-500 text-lg">등록된 객실이 없습니다.</p>
-            <p className="text-gray-400 text-sm mt-2">새로운 객실을 추가해보세요.</p>
-          </div>
         )}
       </div>
 

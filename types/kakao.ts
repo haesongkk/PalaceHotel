@@ -286,10 +286,7 @@ export type KakaoOutputComponent =
  * QuickReplies
  * ------------------------------------- */
 
-/**
- * quickReplies는 구현/문서/레거시에 따라 action 값이 대소문자 차이가 나는 경우가 있어
- * 안전하게 허용 범위를 넓혀 둡니다.
- */
+/** quickReplies action 값은 문서/구현에 따라 대소문자 차이가 있어 message | Message | block 모두 허용 */
 export type KakaoQuickReplyAction = "message" | "Message" | "block";
 
 export type KakaoQuickReply =

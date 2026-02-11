@@ -34,34 +34,31 @@ function getBaseUrl(): string {
 /**
  * 이미지 URL을 짧은 경로로 변환하는 함수
  * 카카오톡 응답 크기 제한(30,720 bytes)을 준수하기 위해 필요
- * BASE_URL을 사용하여 짧은 경로 생성: /api/images/room/[roomId]
+ * 직접 넣은 이미지(data URL)만 우리 API 경로로 변환. 외부 URL은 사용하지 않음.
  */
 function shortenImageUrl(url: string | undefined | null, roomId?: string): string {
   if (!url) {
-    // 이미지가 없으면 기본 placeholder
-    return 'https://picsum.photos/800/600';
+    const baseUrl = getBaseUrl();
+    return `${baseUrl}/api/images/placeholder`;
   }
-  
-  // 이미 짧은 URL이면 그대로 반환 (50자 미만)
-  if (url.length < 50) return url;
-  
+
   // data URL (base64)인 경우 - roomId가 있으면 짧은 경로로 변환
-  if (url.startsWith('data:')) {
-    if (roomId) {
-      const baseUrl = getBaseUrl();
-      return `${baseUrl}/api/images/room/${roomId}`;
-    }
-    // roomId가 없으면 기본 placeholder
-    return 'https://picsum.photos/800/600';
-  }
-  
-  // 외부 URL인 경우 - roomId가 있으면 짧은 경로로 변환
-  if (roomId && (url.startsWith('http://') || url.startsWith('https://'))) {
+  if (url.startsWith('data:') && roomId) {
     const baseUrl = getBaseUrl();
     return `${baseUrl}/api/images/room/${roomId}`;
   }
-  
-  // roomId가 없거나 변환할 수 없는 경우 원본 반환
+
+  // 외부 URL은 사용하지 않음 (placeholder 반환)
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    const baseUrl = getBaseUrl();
+    return `${baseUrl}/api/images/placeholder`;
+  }
+
+  if (roomId && url.length >= 50) {
+    const baseUrl = getBaseUrl();
+    return `${baseUrl}/api/images/room/${roomId}`;
+  }
+
   return url;
 }
 
@@ -85,9 +82,12 @@ function matchSituationFromUtterance(utterance: string): ChatbotSituation | null
   return null;
 }
 
-function getMessage(situation: ChatbotSituation | null): string {
-  if (!situation) return '안녕하세요! 무엇을 도와드릴까요?';
-  return dataStore.getChatbotMessage(situation)?.message ?? '안녕하세요! 무엇을 도와드릴까요?';
+async function getMessage(situation: ChatbotSituation | null): Promise<string> {
+  const fallback = await dataStore.getChatbotMessage('default_greeting');
+  const defaultText = fallback?.message ?? '안녕하세요! 무엇을 도와드릴까요?';
+  if (!situation) return defaultText;
+  const msg = await dataStore.getChatbotMessage(situation);
+  return msg?.message ?? defaultText;
 }
 
 /* ---------------------------
@@ -159,17 +159,22 @@ function createRoomItem(room: Room, checkIn: Date, checkOut: Date): KakaoCarouse
   };
 }
 
-function createRoomCarousel(checkIn: Date, checkOut: Date): KakaoOutputComponent {
+async function createRoomCarousel(checkIn: Date, checkOut: Date): Promise<KakaoOutputComponent> {
+  const rooms = await dataStore.getRooms();
+  if (rooms.length === 0) {
+    const msg = await dataStore.getChatbotMessage('room_sold_out');
+    return simpleText(msg?.message ?? '현재 예약 가능한 객실이 없습니다. 관리자에게 문의해 주세요.');
+  }
   return {
     carousel: {
       type: 'commerceCard',
-      items: dataStore.getRooms().map((room) => createRoomItem(room, checkIn, checkOut)),
+      items: rooms.map((room) => createRoomItem(room, checkIn, checkOut)),
     }
   };
 }
 
-function createHistoryItem(reservation: Reservation): KakaoListItem {
-  const room = dataStore.getRoom(reservation.roomId);
+async function createHistoryItem(reservation: Reservation): Promise<KakaoListItem> {
+  const room = await dataStore.getRoom(reservation.roomId);
   const title = `${room?.type ?? ''} ${new Date(
     reservation.checkIn,
   ).toLocaleDateString()} 입실 ~ ${new Date(
@@ -188,14 +193,16 @@ function createHistoryItem(reservation: Reservation): KakaoListItem {
   };
 }
 
-function createHistoryList(userId: string): KakaoOutputComponent {
-  const customer = dataStore.getCustomerByUserId(userId);
+async function createHistoryList(userId: string): Promise<KakaoOutputComponent> {
+  const customer = await dataStore.getCustomerByUserId(userId);
+  const allReservations = await dataStore.getReservations();
   const reservations = customer
-    ? dataStore.getReservations().filter((r) => r.customerId === customer.id)
+    ? allReservations.filter((r) => r.customerId === customer.id)
     : [];
 
   if (reservations.length === 0) {
-    return simpleText('예약 내역이 없습니다.');
+    const emptyMsg = await dataStore.getChatbotMessage('reservation_empty');
+    return simpleText(emptyMsg?.message ?? '예약 내역이 없습니다.');
   }
 
   return {
@@ -203,7 +210,7 @@ function createHistoryList(userId: string): KakaoOutputComponent {
       header: {
         title: '예약내역',
       },
-      items: reservations.map((reservation) => createHistoryItem(reservation)),
+      items: await Promise.all(reservations.map((reservation) => createHistoryItem(reservation))),
     },
   };
 }
@@ -361,8 +368,8 @@ function getReservationStatusLabel(status: ReservationStatus): string {
   }
 }
 
-function createReservationDetailCard(reservation: Reservation): KakaoOutputComponent {
-  const room = dataStore.getRoom(reservation.roomId);
+async function createReservationDetailCard(reservation: Reservation): Promise<KakaoOutputComponent> {
+  const room = await dataStore.getRoom(reservation.roomId);
   const canCancel = reservation.status === 'pending' || reservation.status === 'confirmed';
 
   const formatDate = (iso: string): string =>
@@ -402,7 +409,7 @@ function createReservationDetailCard(reservation: Reservation): KakaoOutputCompo
       title: room ? `${room.type} 예약 상세` : '예약 상세',
       description: lines.join('\n'),
       thumbnail: {
-        imageUrl: room ? shortenImageUrl(room.imageUrl, room.id) : 'https://picsum.photos/800/600',
+        imageUrl: room ? shortenImageUrl(room.imageUrl, room.id) : shortenImageUrl(undefined, undefined),
         altText: room?.type ?? '객실',
       },
       buttons,
@@ -411,14 +418,13 @@ function createReservationDetailCard(reservation: Reservation): KakaoOutputCompo
   };
 }
 
-export function handleReservationHistorySkill(req: KakaoSkillRequest): KakaoSkillResponse {
+export async function handleReservationHistorySkill(req: KakaoSkillRequest): Promise<KakaoSkillResponse> {
   const utterance = (req.userRequest?.utterance ?? '').trim();
   const extra = req.action?.clientExtra ?? {};
   const userId = req.userRequest?.user?.id ?? '';
 
-  const baseMessage =
-    dataStore.getChatbotMessage('reservation_inquiry')?.message ??
-    '예약 내역을 조회해드리겠습니다.';
+  const inquiryMsg = await dataStore.getChatbotMessage('reservation_inquiry');
+  const baseMessage = inquiryMsg?.message ?? '예약 내역을 조회해드리겠습니다.';
 
   const reservationId =
     typeof (extra as Record<string, unknown>).reservationId === 'string'
@@ -431,12 +437,14 @@ export function handleReservationHistorySkill(req: KakaoSkillRequest): KakaoSkil
 
   // 예약 취소 처리
   if (reservationId && action === 'cancel') {
-    const existing = dataStore.getReservation(reservationId);
+    const notFoundMsg = await dataStore.getChatbotMessage('reservation_not_found');
+    const alreadyCancelledMsg = await dataStore.getChatbotMessage('reservation_already_cancelled');
+    const existing = await dataStore.getReservation(reservationId);
     if (!existing) {
       return {
         version: '2.0',
         template: {
-          outputs: [simpleText('해당 예약을 찾을 수 없습니다.')],
+          outputs: [simpleText(notFoundMsg?.message ?? '해당 예약을 찾을 수 없습니다.')],
         },
       };
     }
@@ -445,15 +453,15 @@ export function handleReservationHistorySkill(req: KakaoSkillRequest): KakaoSkil
       return {
         version: '2.0',
         template: {
-          outputs: [simpleText('이미 취소된 예약입니다.')],
+          outputs: [simpleText(alreadyCancelledMsg?.message ?? '이미 취소된 예약입니다.')],
         },
       };
     }
 
     const updated =
-      dataStore.updateReservation(reservationId, { status: 'cancelled_by_guest' }) ?? existing;
+      (await dataStore.updateReservation(reservationId, { status: 'cancelled_by_guest' })) ?? existing;
 
-    const room = dataStore.getRoom(updated.roomId);
+    const room = await dataStore.getRoom(updated.roomId);
     const roomType = room?.type ?? '객실';
     sendReservationCancelledAlimtalk(updated.id, {
       roomType,
@@ -461,9 +469,9 @@ export function handleReservationHistorySkill(req: KakaoSkillRequest): KakaoSkil
       checkOut: updated.checkOut,
     }).catch((err) => console.error('[알림톡] 예약 취소 알림 실패', err));
 
-    const cancelMessage =
-      dataStore.getChatbotMessage('reservation_cancel')?.message ??
-      '예약이 취소되었습니다.';
+    const cancelMsg = await dataStore.getChatbotMessage('reservation_cancel');
+    const cancelledByUserMsg = await dataStore.getChatbotMessage('reservation_cancelled_by_user');
+    const cancelMessage = cancelMsg?.message ?? cancelledByUserMsg?.message ?? '예약이 취소되었습니다.';
 
     return {
       version: '2.0',
@@ -475,29 +483,32 @@ export function handleReservationHistorySkill(req: KakaoSkillRequest): KakaoSkil
 
   // 특정 예약 상세 조회
   if (reservationId) {
-    const reservation = dataStore.getReservation(reservationId);
+    const notFoundMsg = await dataStore.getChatbotMessage('reservation_not_found');
+    const reservation = await dataStore.getReservation(reservationId);
     if (!reservation) {
       return {
         version: '2.0',
         template: {
-          outputs: [simpleText('해당 예약을 찾을 수 없습니다.'), simpleText(baseMessage)],
+          outputs: [simpleText(notFoundMsg?.message ?? '해당 예약을 찾을 수 없습니다.'), simpleText(baseMessage)],
         },
       };
     }
 
+    const detailCard = await createReservationDetailCard(reservation);
     return {
       version: '2.0',
       template: {
-        outputs: [simpleText(baseMessage), createReservationDetailCard(reservation)],
+        outputs: [simpleText(baseMessage), detailCard],
       },
     };
   }
 
   // 기본: 예약 목록
+  const historyList = await createHistoryList(userId);
   return {
     version: '2.0',
     template: {
-      outputs: [simpleText(baseMessage), createHistoryList(userId)],
+      outputs: [simpleText(baseMessage), historyList],
     },
   };
 }
@@ -506,13 +517,13 @@ export function handleReservationHistorySkill(req: KakaoSkillRequest): KakaoSkil
  * 메인 핸들러
  * --------------------------- */
 
-export function handleKakaoSkillRequest(req: KakaoSkillRequest): KakaoSkillResponse {
+export async function handleKakaoSkillRequest(req: KakaoSkillRequest): Promise<KakaoSkillResponse> {
   const utterance = (req.userRequest?.utterance ?? '').trim();
   const params = req.action?.params ?? {};
   const extra = req.action?.clientExtra ?? {};
 
   const situation = matchSituationFromUtterance(utterance);
-  const message = getMessage(situation);
+  const message = await getMessage(situation);
 
   const today = getTodayDate();
   const tomorrow = getTomorrowDate();
@@ -527,7 +538,7 @@ export function handleKakaoSkillRequest(req: KakaoSkillRequest): KakaoSkillRespo
       template: {
         outputs: [
           simpleText(message),
-          createRoomCarousel(today, today)
+          await createRoomCarousel(today, today)
         ],
       },
     };
@@ -537,7 +548,7 @@ export function handleKakaoSkillRequest(req: KakaoSkillRequest): KakaoSkillRespo
       template: {
         outputs: [
           simpleText(message),
-          createRoomCarousel(today, tomorrow)
+          await createRoomCarousel(today, tomorrow)
         ],
       },
     };
@@ -565,21 +576,22 @@ export function handleKakaoSkillRequest(req: KakaoSkillRequest): KakaoSkillRespo
     };
   case '예약내역':
     // 예약내역 관련 요청은 전용 핸들러로 위임
-    return handleReservationHistorySkill(req);
+    return await handleReservationHistorySkill(req);
   default:
     // 전화번호 입력 처리 (임시 예약 정보가 있는 경우)
     const userId = req.userRequest?.user?.id ?? '';
-    const pendingReservation = dataStore.getPendingReservation(userId);
+    const pendingReservation = await dataStore.getPendingReservation(userId);
     
     if (pendingReservation) {
       // 취소 키워드 체크
       const lowerUtterance = utterance.toLowerCase().trim();
       if (lowerUtterance === '취소' || lowerUtterance === '예약취소') {
-        dataStore.deletePendingReservation(userId);
+        await dataStore.deletePendingReservation(userId);
+        const cancelledMsg = await dataStore.getChatbotMessage('reservation_cancelled_by_user');
         return {
           version: '2.0',
           template: {
-            outputs: [simpleText('예약이 취소되었습니다.')],
+            outputs: [simpleText(cancelledMsg?.message ?? '예약이 취소되었습니다.')],
           },
         };
       }
@@ -587,14 +599,14 @@ export function handleKakaoSkillRequest(req: KakaoSkillRequest): KakaoSkillRespo
       // 전화번호 형식 검증
       if (isValidPhoneNumber(utterance)) {
         const normalizedPhone = normalizePhoneNumber(utterance);
-        return handleReservationWithPhone(req, pendingReservation, normalizedPhone);
+        return await handleReservationWithPhone(req, pendingReservation, normalizedPhone);
       } else {
-        // 전화번호 형식이 잘못된 경우
+        const phoneErrorMsg = await dataStore.getChatbotMessage('phone_format_error');
         return {
           version: '2.0',
           template: {
             outputs: [
-              simpleText('전화번호 형식이 올바르지 않습니다.\n다시 입력해주세요.\n예: 010-1234-5678'),
+              simpleText(phoneErrorMsg?.message ?? '전화번호 형식이 올바르지 않습니다.\n다시 입력해주세요.\n예: 010-1234-5678'),
             ],
             quickReplies: [
               quickReply('취소', {}),
@@ -606,49 +618,53 @@ export function handleKakaoSkillRequest(req: KakaoSkillRequest): KakaoSkillRespo
     
     // 객실 선택 처리 (임시 예약 정보 저장 후 전화번호 요청)
     if (extra.roomId && extra.checkIn && extra.checkOut && extra.totalPrice) {
-      return handleRoomSelection(req);
+      return await handleRoomSelection(req);
     } else if (extra.type) {
       if (extra.type === 'saturday_day_use') {
+        const msg = await dataStore.getChatbotMessage('saturday_day_use_confirm');
         return {
           version: '2.0',
           template: {
             outputs: [
-              simpleText(`토요일 대실 예약하기 눌렀음`),
-              createRoomCarousel(saturday, saturday)
+              simpleText(msg?.message ?? '토요일 대실 예약 가능한 객실을 안내해드리겠습니다.'),
+              await createRoomCarousel(saturday, saturday)
             ],
           },
         };
       } else if (extra.type === 'saturday_stay') {
+        const msg = await dataStore.getChatbotMessage('saturday_stay_confirm');
         return {
           version: '2.0',
           template: {
             outputs: [
-              simpleText(`토요일 숙박 예약하기 눌렀음`),
-              createRoomCarousel(saturday, sunday)
+              simpleText(msg?.message ?? '토요일 숙박 예약 가능한 객실을 안내해드리겠습니다.'),
+              await createRoomCarousel(saturday, sunday)
             ],
           },
         };
       }
     } else if ((extra as Record<string, unknown>).reservationId) {
       // 예약내역 리스트에서 특정 예약을 클릭한 경우
-      return handleReservationHistorySkill(req);
+      return await handleReservationHistorySkill(req);
     } else if (params.checkin && params.checkout) {
+      const msg = await dataStore.getChatbotMessage('date_select_stay');
       return {
         version: '2.0',
         template: {
           outputs: [
-            simpleText(`예약하기-숙박-날짜선택 후 출력될 텍스트 지정 필요`),
-            createRoomCarousel(getDateFromParams(params.checkin), getDateFromParams(params.checkout))
+            simpleText(msg?.message ?? '선택하신 날짜에 예약 가능한 객실입니다.'),
+            await createRoomCarousel(getDateFromParams(params.checkin), getDateFromParams(params.checkout))
           ],
         },
       };
     } else if (params.date) {
+      const msg = await dataStore.getChatbotMessage('date_select_day_use');
       return {
         version: '2.0',
         template: {
           outputs: [
-            simpleText(`예약하기-대실-날짜선택 후 출력될 텍스트 지정 필요`),
-            createRoomCarousel(getDateFromParams(params.date), getDateFromParams(params.date))
+            simpleText(msg?.message ?? '선택하신 날짜에 대실 가능한 객실입니다.'),
+            await createRoomCarousel(getDateFromParams(params.date), getDateFromParams(params.date))
           ],
         },
       };
@@ -667,7 +683,7 @@ export function handleKakaoSkillRequest(req: KakaoSkillRequest): KakaoSkillRespo
  * 객실 선택 시 임시 예약 정보 저장.
  * 재고 확인 후 전화번호 입력 요청(또는 저장된 전화번호 있으면 바로 예약 완료).
  */
-function handleRoomSelection(req: KakaoSkillRequest): KakaoSkillResponse {
+async function handleRoomSelection(req: KakaoSkillRequest): Promise<KakaoSkillResponse> {
   const extra = req.action?.clientExtra ?? {};
   const userId = req.userRequest?.user?.id ?? '';
   const roomId = extra.roomId as string;
@@ -676,11 +692,10 @@ function handleRoomSelection(req: KakaoSkillRequest): KakaoSkillResponse {
   const totalPrice = extra.totalPrice as number;
 
   // 재고 확인 (전화번호 입력 전에 먼저 체크)
-  const isAvailable = dataStore.isRoomAvailable(roomId, checkIn, checkOut);
+  const isAvailable = await dataStore.isRoomAvailable(roomId, checkIn, checkOut);
   if (!isAvailable) {
-    const message =
-      '죄송합니다. 선택하신 날짜에는 남은 객실이 없습니다.\n' +
-      '다른 날짜를 선택하시거나 객실 타입을 변경해서 다시 시도해 주세요.';
+    const soldOutMsg = await dataStore.getChatbotMessage('room_sold_out');
+    const message = soldOutMsg?.message ?? '죄송합니다. 선택하신 날짜에는 남은 객실이 없습니다.\n다른 날짜를 선택하시거나 객실 타입을 변경해서 다시 시도해 주세요.';
     return {
       version: '2.0',
       template: {
@@ -690,7 +705,7 @@ function handleRoomSelection(req: KakaoSkillRequest): KakaoSkillResponse {
   }
 
   // 임시 예약 정보 저장
-  dataStore.savePendingReservation(userId, {
+  await dataStore.savePendingReservation(userId, {
     roomId,
     checkIn,
     checkOut,
@@ -698,18 +713,19 @@ function handleRoomSelection(req: KakaoSkillRequest): KakaoSkillResponse {
   });
 
   // 유저별 저장 전화번호가 있으면 전화번호 입력 단계 스킵 후 바로 예약 완료 (고객 정보는 Customer에서 조회)
-  const history = dataStore.getOrCreateChatHistory(userId);
-  const customer = dataStore.getCustomer(history.customerId);
+  const history = await dataStore.getOrCreateChatHistory(userId);
+  const customer = await dataStore.getCustomer(history.customerId);
   const storedPhone = customer?.phone?.trim();
   if (storedPhone && isValidPhoneNumber(storedPhone)) {
-    const pending = dataStore.getPendingReservation(userId);
+    const pending = await dataStore.getPendingReservation(userId);
     if (pending) {
-      return handleReservationWithPhone(req, pending, normalizePhoneNumber(storedPhone));
+      return await handleReservationWithPhone(req, pending, normalizePhoneNumber(storedPhone));
     }
   }
 
   // 전화번호 입력 요청 메시지
-  const message = dataStore.getChatbotMessage('phone_input_request')?.message ?? 
+  const phoneMsg = await dataStore.getChatbotMessage('phone_input_request');
+  const message = phoneMsg?.message ?? 
     '예약을 완료하기 위해 전화번호를 입력해주세요.\n형식: 010-1234-5678';
 
   return {
@@ -726,31 +742,27 @@ function handleRoomSelection(req: KakaoSkillRequest): KakaoSkillResponse {
 /**
  * 전화번호 입력 후 예약 완료 처리
  */
-function handleReservationWithPhone(
+async function handleReservationWithPhone(
   req: KakaoSkillRequest,
   pendingReservation: { roomId: string; checkIn: string; checkOut: string; totalPrice: number },
   phoneNumber: string
-): KakaoSkillResponse {
+): Promise<KakaoSkillResponse> {
   const userId = req.userRequest?.user?.id ?? '';
-  const existingCustomer = dataStore.getCustomerByUserId(userId);
+  const existingCustomer = await dataStore.getCustomerByUserId(userId);
   const guestNameDisplay =
     existingCustomer?.name?.trim() || (userId.length > 8 ? userId.slice(0, 8) : userId);
 
   // 재고 체크: 객실 타입별 재고를 초과하는 경우 예약 불가 처리
-  const isAvailable = dataStore.isRoomAvailable(
+  const isAvailable = await dataStore.isRoomAvailable(
     pendingReservation.roomId,
     pendingReservation.checkIn,
     pendingReservation.checkOut
   );
 
   if (!isAvailable) {
-    // 사용자의 임시 예약 정보는 정리
-    dataStore.deletePendingReservation(userId);
-
-    const message =
-      '죄송합니다. 선택하신 날짜에는 남은 객실이 없습니다.\n' +
-      '다른 날짜를 선택하시거나 객실 타입을 변경해서 다시 시도해 주세요.';
-
+    await dataStore.deletePendingReservation(userId);
+    const soldOutMsg = await dataStore.getChatbotMessage('room_sold_out');
+    const message = soldOutMsg?.message ?? '죄송합니다. 선택하신 날짜에는 남은 객실이 없습니다.\n다른 날짜를 선택하시거나 객실 타입을 변경해서 다시 시도해 주세요.';
     return {
       version: '2.0',
       template: {
@@ -760,12 +772,12 @@ function handleReservationWithPhone(
   }
 
   // 고객 마스터 생성/갱신 (이름·전화번호), 예약은 customerId만 보관
-  const customer = dataStore.getOrCreateCustomerByUserId(userId, {
+  const customer = await dataStore.getOrCreateCustomerByUserId(userId, {
     name: guestNameDisplay,
     phone: phoneNumber,
   });
 
-  const reservation = dataStore.addReservation({
+  const reservation = await dataStore.addReservation({
     roomId: pendingReservation.roomId,
     customerId: customer.id,
     source: 'kakao',
@@ -776,7 +788,7 @@ function handleReservationWithPhone(
   });
 
   // 임시 예약 정보 삭제
-  dataStore.deletePendingReservation(userId);
+  await dataStore.deletePendingReservation(userId);
 
   // 관리자에게 알림톡 발송 (비동기, 에러는 조용히 처리)
   sendReservationNotificationAlimtalk(reservation.id).catch((error) => {
@@ -784,10 +796,11 @@ function handleReservationWithPhone(
     // 알림톡 실패해도 예약은 정상 처리됨
   });
 
+  const reqMsg = await dataStore.getChatbotMessage('reservation_request');
   return {
     version: '2.0',
     template: {
-      outputs: [simpleText(dataStore.getChatbotMessage('reservation_request')?.message ?? '')],
+      outputs: [simpleText(reqMsg?.message ?? '')],
     },
   };
 }

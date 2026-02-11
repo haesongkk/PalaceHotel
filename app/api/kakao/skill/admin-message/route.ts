@@ -37,8 +37,8 @@ type BotResponse = NonNullable<NonNullable<ChatMessage['botMessage']>['response'
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as KakaoSkillRequest;
-
+    const raw = await request.json().catch(() => null);
+    const body = raw && typeof raw === 'object' ? (raw as KakaoSkillRequest) : null;
     if (!body?.userRequest?.user?.id || !body?.action) {
       return NextResponse.json(
         { error: 'userRequest.user.id, action 필요' },
@@ -51,7 +51,6 @@ export async function POST(request: NextRequest) {
     const text = getAdminMessageText(body, userIdStr);
 
     if (!text?.trim()) {
-      console.warn('[admin-message] 400: text 없음. userId:', userIdStr, 'params:', body.action?.params, 'clientExtra:', body.action?.clientExtra, 'event.data:', (body as { event?: { data?: unknown } }).event?.data);
       return NextResponse.json(
         { error: '전달된 메시지가 없습니다. 이벤트 블록에서 스킬 파라미터 "text"에 event.data.text를 매핑해 두면 인스턴스가 달라도 동작합니다. (또는 관리자 페이지에서 채팅 전송 직후에만 호출되는 경우 store 사용)' },
         { status: 400 }
@@ -77,7 +76,7 @@ export async function POST(request: NextRequest) {
           }
         : undefined,
     };
-    dataStore.addMessageToHistory(userId, {
+    await dataStore.addMessageToHistory(userId, {
       sender: 'bot',
       botMessage: { response: storedResponse },
       content: messageText,

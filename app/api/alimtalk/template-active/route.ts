@@ -12,7 +12,7 @@ export async function PUT(request: NextRequest) {
     if (!displayName || !tplCode) {
       return NextResponse.json({ error: 'displayName, tplCode 필수' }, { status: 400 });
     }
-    dataStore.setTemplateActive(displayName, tplCode);
+    await dataStore.setTemplateActive(displayName, tplCode);
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: '설정 실패' }, { status: 500 });

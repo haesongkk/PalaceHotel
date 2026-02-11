@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dataStore } from '@/lib/store';
 
 export async function GET() {
-  const types = dataStore.getReservationTypes();
+  const types = await dataStore.getReservationTypes();
   return NextResponse.json(types);
 }
 
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const type = dataStore.addReservationType({ name, color });
+    const type = await dataStore.addReservationType({ name, color });
     return NextResponse.json(type, { status: 201 });
   } catch {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });

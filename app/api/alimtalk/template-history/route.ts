@@ -9,8 +9,10 @@ export async function GET(request: NextRequest) {
   if (!displayName) {
     return NextResponse.json({ error: 'displayName 쿼리가 필요합니다.' }, { status: 400 });
   }
-  const history = dataStore.getTemplateHistory(displayName);
-  const activeTplCode = dataStore.getTemplateActive(displayName);
+  const [history, activeTplCode] = await Promise.all([
+    dataStore.getTemplateHistory(displayName),
+    dataStore.getTemplateActive(displayName),
+  ]);
   return NextResponse.json({ history, activeTplCode });
 }
 
@@ -25,7 +27,7 @@ export async function POST(request: NextRequest) {
     if (!displayName || !tplCode || !content) {
       return NextResponse.json({ error: 'displayName, tplCode, content 필수' }, { status: 400 });
     }
-    dataStore.addTemplateHistory(displayName, tplCode, content);
+    await dataStore.addTemplateHistory(displayName, tplCode, content);
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: '저장 실패' }, { status: 500 });

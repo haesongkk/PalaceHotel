@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 2) 로컬 히스토리/대표 템플릿 정리
-    dataStore.deleteTemplateHistoryItem(displayName, tplCode);
+    await dataStore.deleteTemplateHistoryItem(displayName, tplCode);
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: '삭제 실패' }, { status: 500 });

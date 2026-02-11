@@ -10,6 +10,6 @@ export async function GET(
   { params }: { params: { situation: string } }
 ) {
   const situation = params.situation as ChatbotSituation;
-  const history = dataStore.getChatbotMessageHistory(situation);
+  const history = await dataStore.getChatbotMessageHistory(situation);
   return NextResponse.json(history);
 }

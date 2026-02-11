@@ -14,14 +14,25 @@ import {
 
 const situationLabels: Record<ChatbotSituation, string> = {
   channel_added: '채널 추가시',
-  today_day_use: '오늘대실 선택시',
-  today_stay: '오늘숙박 선택시',
-  saturday_reservation: '토요일예약 선택시',
+  today_day_use: '오늘 대실 선택시',
+  today_stay: '오늘 숙박 선택시',
+  saturday_reservation: '토요일 예약 선택시',
   make_reservation: '예약하기 선택시',
   phone_input_request: '전화번호 입력 요청시',
-  reservation_request: '예약 요청시',
+  reservation_request: '예약 요청 접수시',
   reservation_inquiry: '예약내역 조회시',
-  reservation_cancel: '예약 취소시',
+  reservation_cancel: '예약 취소 완료시',
+  default_greeting: '기본 인사',
+  reservation_empty: '예약 내역 없음',
+  reservation_not_found: '해당 예약 없음',
+  reservation_already_cancelled: '이미 취소된 예약',
+  reservation_cancelled_by_user: '예약 진행 중 취소',
+  phone_format_error: '전화번호 형식 오류',
+  room_sold_out: '재고 없음 안내',
+  saturday_day_use_confirm: '토요일 대실 선택시',
+  saturday_stay_confirm: '토요일 숙박 선택시',
+  date_select_stay: '숙박 날짜선택 후',
+  date_select_day_use: '대실 날짜선택 후',
 };
 
 const INSP_STATUS_LABEL: Record<string, string> = {
@@ -70,10 +81,10 @@ export default function ChatbotMessagesPage() {
   const fetchMessages = async () => {
     try {
       const response = await fetch('/api/chatbot-messages');
-      const data = await response.json();
-      setMessages(data);
+      const raw = await response.json().catch(() => []);
+      setMessages(Array.isArray(raw) ? raw : []);
     } catch (error) {
-      console.error('Failed to fetch messages:', error);
+      console.error('[챗봇 멘트] 로드 실패', error);
     } finally {
       setLoading(false);
     }
@@ -89,14 +100,14 @@ export default function ChatbotMessagesPage() {
           fetch(`/api/alimtalk/template-history?displayName=${encodeURIComponent(d)}`)
         ),
       ]);
-      const listData = await listRes.json();
-      if (!listRes.ok) throw new Error(listData.error ?? '목록 조회 실패');
+      const listData = await listRes.json().catch(() => ({}));
+      if (!listRes.ok) throw new Error(listData?.error ?? '목록 조회 실패');
       setTemplates(Array.isArray(listData) ? listData : []);
 
       const hist: typeof templateHistory = {};
       for (let i = 0; i < ALIMTALK_DISPLAY_NAMES.length; i++) {
         const d = ALIMTALK_DISPLAY_NAMES[i];
-        const h = await historyRes[i].json();
+        const h = await historyRes[i].json().catch(() => ({}));
         hist[d] = {
           history: Array.isArray(h?.history) ? h.history : [],
           activeTplCode: h?.activeTplCode ?? null,
@@ -133,10 +144,15 @@ export default function ChatbotMessagesPage() {
   };
 
   const templateDisplayItems: TemplateDisplayItem[] = ALIMTALK_DISPLAY_NAMES.map((displayName) => {
-    const prefix = sanitizeDisplayName(displayName) + '_';
-    const matching = templates.filter(
-      (t) => (t.templtName ?? '').startsWith(prefix)
-    );
+    const sanitized = sanitizeDisplayName(displayName);
+    const prefix = sanitized + '_';
+    const matching = templates.filter((t) => {
+      const name = t.templtName ?? '';
+      const sanitizedName = sanitizeDisplayName(name);
+      // 1) 우리 쪽에서 생성한 내부 이름 패턴: 표시이름_sanitized + '_' + timestamp
+      // 2) 알리고 콘솔에서 템플릿명을 표시 이름과 동일하게 맞춘 경우: 공백만 제거해서 완전 일치
+      return name.startsWith(prefix) || sanitizedName === sanitized;
+    });
     const active = templateHistory[displayName]?.activeTplCode;
     // 대표 템플릿이 설정되어 있으면 상태와 무관하게 항상 대표 템플릿을 우선 표시
     const activeT = active

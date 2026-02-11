@@ -27,7 +27,7 @@ function SimpleImageMessage({ imageUrl, altText }: { imageUrl: string; altText?:
         alt={altText || '이미지'}
         className="max-w-full h-auto"
         onError={(e) => {
-          (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Image+Not+Found';
+          (e.target as HTMLImageElement).src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
         }}
       />
     </div>
@@ -66,7 +66,7 @@ function BasicCardMessage({ card }: { card: { title?: string; description?: stri
             alt={card.thumbnail.altText || '썸네일'}
             className="w-full h-auto"
             onError={(e) => {
-              (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Image+Not+Found';
+              (e.target as HTMLImageElement).src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
             }}
           />
         </div>
@@ -104,7 +104,7 @@ function CommerceCardMessage({ card }: { card: { title?: string; description?: s
             alt={card.thumbnails[0].altText || '상품 이미지'}
             className="w-full h-auto"
             onError={(e) => {
-              (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Image+Not+Found';
+              (e.target as HTMLImageElement).src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
             }}
           />
         </div>
@@ -164,7 +164,7 @@ function ListCardMessage({ card }: { card: { header?: { title: string; descripti
                   alt={item.title}
                   className="w-16 h-16 object-cover rounded"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://via.placeholder.com/64x64?text=Image';
+                    (e.target as HTMLImageElement).src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
                   }}
                 />
               )}
@@ -287,7 +287,6 @@ function MessageContent({ message }: { message: ChatMessage }) {
     );
   }
 
-  // 하위 호환성: content 필드 사용
   if (message.content) {
     return <SimpleTextMessage text={message.content} />;
   }
@@ -342,12 +341,14 @@ export default function ChatHistoryModal({ history: initialHistory, onClose, onS
         }),
       });
       if (!res.ok) throw new Error('저장 실패');
-      const updated = await res.json();
-      setHistory(updated);
-      setEditing(false);
-      await onSaved?.(updated);
+      const updated = await res.json().catch(() => null);
+      if (updated && typeof updated === 'object') {
+        setHistory(updated);
+        setEditing(false);
+        await onSaved?.(updated);
+      }
     } catch (e) {
-      console.error(e);
+      console.error('[대화 내역] 저장 실패', e);
     } finally {
       setSaving(false);
     }
@@ -366,11 +367,11 @@ export default function ChatHistoryModal({ history: initialHistory, onClose, onS
     try {
       const res = await fetch(`/api/chat-histories?userId=${encodeURIComponent(history.userId)}`);
       if (res.ok) {
-        const updated = await res.json();
-        setHistory(updated);
+        const updated = await res.json().catch(() => null);
+        if (updated && typeof updated === 'object') setHistory(updated);
       }
     } catch {
-      // 무시
+      // 새로고침 실패 시 무시
     }
   };
 

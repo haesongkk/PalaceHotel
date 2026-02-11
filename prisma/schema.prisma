@@ -1,0 +1,144 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+
+datasource db {
+  provider = "postgresql"
+}
+
+// 객실
+model Room {
+  id             String   @id @default(cuid())
+  imageUrl       String?
+  type           String
+  inventory      Int
+  discountRate   Int?
+  sortOrder      Int?
+  prices         Json     // Record<DayOfWeek, DayPrices>
+  dayUseCheckIn  String
+  dayUseCheckOut String
+  stayCheckIn    String
+  stayCheckOut   String
+
+  reservations              Reservation[]
+  roomInventoryAdjustments  RoomInventoryAdjustment[]
+}
+
+// 고객
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String
+  userId    String?  @unique
+  memo      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reservations Reservation[]
+  chatHistory  ChatHistory?
+}
+
+// 예약 타입
+model ReservationType {
+  id        String   @id @default(cuid())
+  name      String
+  color     String
+  createdAt DateTime @default(now())
+
+  reservations Reservation[]
+}
+
+// 예약
+model Reservation {
+  id                   String   @id @default(cuid())
+  roomId               String
+  customerId           String
+  source               String?  // 'kakao' | 'manual'
+  reservationTypeId    String?
+  checkIn              DateTime
+  checkOut             DateTime
+  status               String   // ReservationStatus
+  totalPrice           Int
+  adminMemo            String?
+  guestCancellationConfirmed Boolean?
+  createdAt            DateTime @default(now())
+
+  room             Room             @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  customer         Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  reservationType  ReservationType? @relation(fields: [reservationTypeId], references: [id])
+
+  @@index([roomId])
+  @@index([customerId])
+  @@index([status])
+}
+
+// 객실 재고 조정
+model RoomInventoryAdjustment {
+  roomId String
+  date   String   // YYYY-MM-DD
+  delta  Int
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@id([roomId, date])
+}
+
+// 챗봇 멘트
+model ChatbotMessage {
+  situation   String   @id // ChatbotSituation enum value
+  description String
+  message     String
+  updatedAt   DateTime @updatedAt
+}
+
+// 챗봇 멘트 이력
+model ChatbotMessageHistory {
+  id        String   @id @default(cuid())
+  situation String
+  message   String
+  savedAt   DateTime @default(now())
+
+  @@index([situation])
+}
+
+// 대화 내역
+model ChatHistory {
+  id         String   @id @default(cuid())
+  customerId String   @unique
+  messages   Json     // ChatMessage[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+// 임시 예약 (전화번호 입력 대기)
+model PendingReservation {
+  userId    String   @id
+  roomId    String
+  checkIn   DateTime
+  checkOut  DateTime
+  totalPrice Int
+  createdAt DateTime @default(now())
+}
+
+// 알림톡 템플릿 이력
+model TemplateHistory {
+  id          String   @id @default(cuid())
+  displayName String
+  tplCode     String
+  content     String
+  savedAt     DateTime @default(now())
+
+  @@index([displayName])
+}
+
+// 알림톡 활성 템플릿 매핑
+model TemplateActive {
+  displayName String @id
+  tplCode     String
+}

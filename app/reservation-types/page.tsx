@@ -18,10 +18,10 @@ export default function ReservationTypesPage() {
     try {
       setLoading(true);
       const res = await fetch('/api/reservation-types');
-      const data: ReservationType[] = await res.json();
-      setTypes(data);
+      const raw = await res.json().catch(() => []);
+      setTypes(Array.isArray(raw) ? raw : []);
     } catch (e) {
-      console.error('Failed to fetch reservation types:', e);
+      console.error('[예약 타입] 로드 실패', e);
       setTypes([]);
     } finally {
       setLoading(false);
@@ -54,7 +54,7 @@ export default function ReservationTypesPage() {
       setColor('bg-emerald-100 text-emerald-800');
       await fetchTypes();
     } catch (e) {
-      console.error(e);
+      console.error('[예약 타입] 생성 실패', e);
       alert('예약 타입 생성에 실패했습니다.');
     } finally {
       setSubmitting(false);
@@ -94,7 +94,7 @@ export default function ReservationTypesPage() {
       await fetchTypes();
       handleCancelEdit();
     } catch (e) {
-      console.error(e);
+      console.error('[예약 타입] 수정 실패', e);
       alert('수정에 실패했습니다.');
     } finally {
       setSubmitting(false);
@@ -114,7 +114,7 @@ export default function ReservationTypesPage() {
       }
       await fetchTypes();
     } catch (e) {
-      console.error(e);
+      console.error('[예약 타입] 삭제 실패', e);
       alert('삭제에 실패했습니다.');
     }
   };

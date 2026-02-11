@@ -15,8 +15,8 @@ type BotResponse = NonNullable<NonNullable<ChatMessage['botMessage']>['response'
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as KakaoSkillRequest;
-
+    const raw = await request.json().catch(() => null);
+    const body = raw && typeof raw === 'object' ? (raw as KakaoSkillRequest) : null;
     if (!body?.userRequest || !body?.action) {
       return NextResponse.json(
         { error: 'Invalid skill payload: userRequest, action required' },
@@ -28,74 +28,16 @@ export async function POST(request: NextRequest) {
     const utterance = body.userRequest.utterance || '';
     const userName = body.userRequest.user.properties?.nickname as string | undefined;
 
-    // 사용자 메시지 저장
-    dataStore.addMessageToHistory(userId, {
+    await dataStore.addMessageToHistory(userId, {
       sender: 'user',
       userMessage: {
         utterance,
         request: body as unknown as Record<string, unknown>,
       },
-      // 하위 호환성을 위한 content
       content: utterance,
     });
 
-    // 봇 응답 생성 (예약내역 전용 핸들러)
-    const response = handleReservationHistorySkill(body);
-
-    // 이미지 전송 확인을 위한 로깅
-    if (response.template?.outputs) {
-      for (const output of response.template.outputs) {
-        if ('carousel' in output && output.carousel) {
-          const carousel = output.carousel;
-          if (carousel.type === 'commerceCard' && carousel.items) {
-            carousel.items.forEach((item, idx) => {
-              if ('thumbnails' in item && item.thumbnails) {
-                item.thumbnails.forEach((thumb, thumbIdx) => {
-                  console.log(`[이미지 전송 확인][예약내역] 카루셀 아이템 ${idx}, 썸네일 ${thumbIdx}:`, {
-                    imageUrl: thumb.imageUrl,
-                    altText: thumb.altText,
-                    hasImage: !!thumb.imageUrl,
-                  });
-                });
-              }
-            });
-          }
-        }
-        if ('listCard' in output && output.listCard) {
-          const listCard = output.listCard;
-          if (listCard.items) {
-            listCard.items.forEach((item, idx) => {
-              if (item.imageUrl) {
-                console.log(`[이미지 전송 확인][예약내역] 리스트 아이템 ${idx}:`, {
-                  imageUrl: item.imageUrl,
-                  hasImage: !!item.imageUrl,
-                });
-              }
-            });
-          }
-        }
-      }
-    }
-
-    // 응답 크기 확인 (카카오톡 제한: 30,720 bytes)
-    const responseJson = JSON.stringify(response);
-    const responseSize = new Blob([responseJson]).size;
-    const maxSize = 30720;
-    const sizePercent = ((responseSize / maxSize) * 100).toFixed(1);
-
-    console.log(
-      `[응답 크기][예약내역] ${responseSize.toLocaleString()} bytes / ${maxSize.toLocaleString()} bytes (${sizePercent}%)`
-    );
-
-    if (responseSize > maxSize) {
-      console.error(
-        `[경고][예약내역] 응답 크기가 제한을 초과했습니다! ${responseSize - maxSize} bytes 초과`
-      );
-    } else if (responseSize > maxSize * 0.9) {
-      console.warn(
-        `[주의][예약내역] 응답 크기가 제한에 근접했습니다. (${sizePercent}% 사용 중)`
-      );
-    }
+    const response = await handleReservationHistorySkill(body);
 
     // 봇 응답 저장 (store는 outputs를 Record[]로 기대함)
     const storedResponse: BotResponse = {
@@ -110,7 +52,7 @@ export async function POST(request: NextRequest) {
           }
         : undefined,
     };
-    dataStore.addMessageToHistory(userId, {
+    await dataStore.addMessageToHistory(userId, {
       sender: 'bot',
       botMessage: { response: storedResponse },
       content: extractTextFromResponse(response),
@@ -118,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(response);
   } catch (e) {
-    console.error('[Kakao Skill][예약내역]', e);
+    console.error('[Kakao Skill 예약내역]', e);
     return NextResponse.json(
       { error: 'Reservation history skill server error' },
       { status: 500 }
@@ -126,7 +68,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 응답에서 텍스트를 추출하는 헬퍼 함수 (하위 호환성용)
+/** 대화 목록 표시용으로 봇 응답에서 텍스트 추출 */
 function extractTextFromResponse(response: KakaoSkillResponse): string {
   if (!response.template?.outputs) {
     return '';

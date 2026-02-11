@@ -102,9 +102,10 @@ export default function ConversationPanel({
     if (source.mode === 'chat-history' && userId) {
       setLoadingReservation(true);
       fetch('/api/reservations')
-        .then((res) => (res.ok ? res.json() : []))
-        .then((list: ReservationWithGuest[]) => {
-          const forUser = list.filter((r) => r.userId === userId);
+        .then((res) => (res.ok ? res.json().catch(() => []) : []))
+        .then((list: unknown) => {
+          const arr = Array.isArray(list) ? list : [];
+          const forUser = arr.filter((r: ReservationWithGuest) => r?.userId === userId);
           const latest = forUser.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] ?? null;
           setReservation(latest);
         })
@@ -160,8 +161,9 @@ export default function ConversationPanel({
       });
       if (res.ok) {
         if (source.mode === 'chat-history') {
-          const data: ReservationWithGuest[] = await fetch('/api/reservations').then((r) => (r.ok ? r.json() : []));
-          const next = data.find((r) => r.id === activeReservation.id) ?? null;
+          const raw = await fetch('/api/reservations').then((r) => (r.ok ? r.json().catch(() => []) : []));
+          const data = Array.isArray(raw) ? raw : [];
+          const next = data.find((r) => r?.id === activeReservation.id) ?? null;
           setReservation(next);
         }
         onStatusChange?.();
@@ -193,11 +195,11 @@ export default function ConversationPanel({
     try {
       const res = await fetch(`/api/chat-histories?userId=${encodeURIComponent(userId)}`);
       if (res.ok) {
-        const data = await res.json();
-        setHistory(data);
+        const data = await res.json().catch(() => null);
+        if (data && typeof data === 'object') setHistory(data);
       }
     } catch {
-      // ignore
+      // 무시
     }
   };
 

@@ -7,18 +7,12 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const reservationId = params.id;
-  console.log('[API] 예약 조회 요청:', reservationId);
-  
-  const reservation = dataStore.getReservation(reservationId);
+  const reservation = await dataStore.getReservation(params.id);
   if (!reservation) {
-    console.log('[API] 예약을 찾을 수 없음:', reservationId);
-    const allReservations = dataStore.getReservations();
-    console.log('[API] 현재 저장된 예약 ID 목록:', allReservations.map(r => r.id));
     return NextResponse.json({ error: 'Reservation not found' }, { status: 404 });
   }
 
-  const customer = dataStore.getCustomer(reservation.customerId);
+  const customer = await dataStore.getCustomer(reservation.customerId);
   const expanded = {
     ...reservation,
     guestName: customer?.name ?? '',
@@ -26,7 +20,6 @@ export async function GET(
     userId: customer?.userId,
   };
 
-  console.log('[API] 예약 조회 성공:', { id: reservation.id, guestName: expanded.guestName, status: reservation.status });
   return NextResponse.json(expanded);
 }
 
@@ -40,7 +33,7 @@ export async function PUT(
       typeof body.statusChangeMemo === 'string' ? body.statusChangeMemo.trim() : undefined;
 
     // 기존 예약 정보 가져오기 (상태 변경 확인용)
-    const existingReservation = dataStore.getReservation(params.id);
+    const existingReservation = await dataStore.getReservation(params.id);
     if (!existingReservation) {
       return NextResponse.json({ error: 'Reservation not found' }, { status: 404 });
     }
@@ -63,19 +56,19 @@ export async function PUT(
           : undefined;
     }
 
-    const reservation = dataStore.updateReservation(params.id, updatePayload);
+    const reservation = await dataStore.updateReservation(params.id, updatePayload);
     if (!reservation) {
       return NextResponse.json({ error: 'Reservation not found' }, { status: 404 });
     }
 
-    const room = dataStore.getRoom(reservation.roomId);
+    const room = await dataStore.getRoom(reservation.roomId);
     const roomType = room?.type ?? '객실';
     const isDayUse =
       new Date(reservation.checkIn).toDateString() === new Date(reservation.checkOut).toDateString();
     const checkInTime = room ? (isDayUse ? room.dayUseCheckIn : room.stayCheckIn) : undefined;
     const checkOutTime = room ? (isDayUse ? room.dayUseCheckOut : room.stayCheckOut) : undefined;
 
-    const guestPhone = dataStore.getCustomer(reservation.customerId)?.phone;
+    const guestPhone = (await dataStore.getCustomer(reservation.customerId))?.phone;
     if (
       newStatus &&
       oldStatus === 'pending' &&
@@ -123,7 +116,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const success = dataStore.deleteReservation(params.id);
+  const success = await dataStore.deleteReservation(params.id);
   if (!success) {
     return NextResponse.json({ error: 'Reservation not found' }, { status: 404 });
   }

@@ -21,7 +21,7 @@ export async function PUT(
       updates.color = body.color.trim();
     }
 
-    const updated = dataStore.updateReservationType(params.id, updates);
+    const updated = await dataStore.updateReservationType(params.id, updates);
     if (!updated) {
       return NextResponse.json({ error: 'Reservation type not found' }, { status: 404 });
     }
@@ -41,7 +41,7 @@ export async function DELETE(
       { status: 400 }
     );
   }
-  const success = dataStore.deleteReservationType(params.id);
+  const success = await dataStore.deleteReservationType(params.id);
   if (!success) {
     return NextResponse.json({ error: 'Reservation type not found' }, { status: 404 });
   }

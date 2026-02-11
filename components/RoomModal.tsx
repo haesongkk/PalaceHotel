@@ -73,17 +73,56 @@ export default function RoomModal({ room, onClose }: RoomModalProps) {
     }
   }, [room]);
 
-  const handleFileSelect = (file: File) => {
+  /** 이미지 리사이즈·압축 후 data URL 반환 (저장용 base64 길이 감소 → 카톡 전송 안정) */
+  const compressImageFile = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 600;
+        let { width, height } = img;
+        if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+          const r = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
+          width = Math.round(width * r);
+          height = Math.round(height * r);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Canvas not supported'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        try {
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+          resolve(dataUrl);
+        } catch {
+          reject(new Error('Failed to compress image'));
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Failed to load image'));
+      };
+      img.src = url;
+    });
+  };
+
+  const handleFileSelect = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       alert('이미지 파일만 업로드 가능합니다.');
       return;
     }
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setFormData({ ...formData, imageUrl: reader.result as string });
-    };
-    reader.readAsDataURL(file);
+    try {
+      const dataUrl = await compressImageFile(file);
+      setFormData((prev) => ({ ...prev, imageUrl: dataUrl }));
+    } catch {
+      alert('이미지 처리에 실패했습니다. 다른 이미지를 선택해 주세요.');
+    }
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -159,7 +198,7 @@ export default function RoomModal({ room, onClose }: RoomModalProps) {
         alert('저장에 실패했습니다.');
       }
     } catch (error) {
-      console.error('Failed to save room:', error);
+      console.error('[객실 모달] 저장 실패', error);
       alert('저장에 실패했습니다.');
     }
   };

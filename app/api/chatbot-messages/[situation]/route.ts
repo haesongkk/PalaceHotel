@@ -6,7 +6,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { situation: string } }
 ) {
-  const message = dataStore.getChatbotMessage(params.situation as ChatbotSituation);
+  const message = await dataStore.getChatbotMessage(params.situation as ChatbotSituation);
   if (!message) {
     return NextResponse.json({ error: 'Message not found' }, { status: 404 });
   }
@@ -25,7 +25,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Invalid message' }, { status: 400 });
     }
 
-    const updated = dataStore.updateChatbotMessage(
+    const updated = await dataStore.updateChatbotMessage(
       params.situation as ChatbotSituation,
       message
     );

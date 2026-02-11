@@ -23,6 +23,17 @@ class DataStore {
     reservation_request: '사용자가 예약을 요청했을 때 표시되는 확인 메시지입니다.',
     reservation_inquiry: '사용자가 예약 내역을 조회했을 때 표시되는 안내 메시지입니다.',
     reservation_cancel: '사용자가 예약을 취소했을 때 표시되는 안내 메시지입니다.',
+    default_greeting: '상황이 없거나 멘트를 불러오지 못할 때 사용하는 기본 인사입니다.',
+    reservation_empty: '예약 내역이 없을 때 리스트 카드 대신 표시하는 문구입니다.',
+    reservation_not_found: '예약 ID로 조회했으나 해당 예약이 없을 때 표시합니다.',
+    reservation_already_cancelled: '이미 취소된 예약을 다시 취소하려 할 때 표시합니다.',
+    reservation_cancelled_by_user: '예약 진행 중 사용자가 "취소" 입력 시 표시합니다.',
+    phone_format_error: '전화번호 형식이 잘못되었을 때 안내 문구입니다.',
+    room_sold_out: '선택한 날짜에 재고가 없을 때 표시합니다.',
+    saturday_day_use_confirm: '토요일 예약에서 "대실"을 선택했을 때 표시하는 문구입니다.',
+    saturday_stay_confirm: '토요일 예약에서 "숙박"을 선택했을 때 표시하는 문구입니다.',
+    date_select_stay: '예약하기 > 숙박 > 날짜선택 후 객실 카드 위에 표시하는 문구입니다.',
+    date_select_day_use: '예약하기 > 대실 > 날짜선택 후 객실 카드 위에 표시하는 문구입니다.',
   };
 
   // 초기 샘플 데이터
@@ -31,111 +42,9 @@ class DataStore {
   }
 
   private initializeSampleData() {
-    // 기본 요일별 가격 템플릿
-    const defaultPrices = {
-      monday: { stayPrice: 30000, dayUsePrice: 30000 },
-      tuesday: { stayPrice: 30000, dayUsePrice: 30000 },
-      wednesday: { stayPrice: 30000, dayUsePrice: 30000 },
-      thursday: { stayPrice: 30000, dayUsePrice: 30000 },
-      friday: { stayPrice: 30000, dayUsePrice: 30000 },
-      saturday: { stayPrice: 30000, dayUsePrice: 30000 },
-      sunday: { stayPrice: 30000, dayUsePrice: 30000 },
-    };
+    // 객실·예약 타입·알림톡 템플릿 등은 초기값 없음. 챗봇 멘트만 초기화.
 
-    // 샘플 객실 데이터 (짧은 이미지 URL 사용)
-    this.rooms = [
-      {
-        id: '1',
-        imageUrl: 'https://picsum.photos/800/600?random=1',
-        inventory: 10,
-        type: '올나잇대실',
-        discountRate: 10,
-        sortOrder: 1,
-        prices: defaultPrices,
-        dayUseCheckIn: '10:00',
-        dayUseCheckOut: '18:00',
-        stayCheckIn: '15:00',
-        stayCheckOut: '11:00',
-      },
-      {
-        id: '2',
-        imageUrl: 'https://picsum.photos/800/600?random=2',
-        inventory: 8,
-        type: '2PC게임',
-        discountRate: 10,
-        sortOrder: 2,
-        prices: {
-          monday: { stayPrice: 60000, dayUsePrice: 30000 },
-          tuesday: { stayPrice: 60000, dayUsePrice: 30000 },
-          wednesday: { stayPrice: 60000, dayUsePrice: 30000 },
-          thursday: { stayPrice: 60000, dayUsePrice: 30000 },
-          friday: { stayPrice: 70000, dayUsePrice: 40000 },
-          saturday: { stayPrice: 80000, dayUsePrice: 50000 },
-          sunday: { stayPrice: 90000, dayUsePrice: 60000 },
-        },
-        dayUseCheckIn: '10:00',
-        dayUseCheckOut: '18:00',
-        stayCheckIn: '15:00',
-        stayCheckOut: '11:00',
-      },
-      {
-        id: '3',
-        imageUrl: 'https://picsum.photos/800/600?random=3',
-        inventory: 5,
-        type: '디럭스',
-        discountRate: 10,
-        sortOrder: 3,
-        prices: {
-          monday: { stayPrice: 35000, dayUsePrice: 20000 },
-          tuesday: { stayPrice: 35000, dayUsePrice: 20000 },
-          wednesday: { stayPrice: 35000, dayUsePrice: 20000 },
-          thursday: { stayPrice: 35000, dayUsePrice: 20000 },
-          friday: { stayPrice: 45000, dayUsePrice: 30000 },
-          saturday: { stayPrice: 55000, dayUsePrice: 40000 },
-          sunday: { stayPrice: 65000, dayUsePrice: 50000 },
-        },
-        dayUseCheckIn: '10:00',
-        dayUseCheckOut: '18:00',
-        stayCheckIn: '15:00',
-        stayCheckOut: '11:00',
-      },
-      {
-        id: '4',
-        imageUrl: 'https://picsum.photos/800/600?random=4',
-        inventory: 8,
-        type: '도보특가',
-        discountRate: 10,
-        sortOrder: 4,
-        prices: {
-          monday: { stayPrice: 60000, dayUsePrice: 30000 },
-          tuesday: { stayPrice: 60000, dayUsePrice: 30000 },
-          wednesday: { stayPrice: 60000, dayUsePrice: 30000 },
-          thursday: { stayPrice: 60000, dayUsePrice: 30000 },
-          friday: { stayPrice: 70000, dayUsePrice: 40000 },
-          saturday: { stayPrice: 80000, dayUsePrice: 50000 },
-          sunday: { stayPrice: 90000, dayUsePrice: 60000 },
-        },
-        dayUseCheckIn: '10:00',
-        dayUseCheckOut: '18:00',
-        stayCheckIn: '15:00',
-        stayCheckOut: '11:00',
-      },
-    ];
-
-    // 예약 타입 샘플 데이터 (수기 예약용)
-    // 기본 타입: "일반" (수정/삭제 불가)
-    this.reservationTypes = [
-      {
-        id: 'default',
-        name: '일반',
-        color: 'bg-gray-100 text-gray-800',
-        createdAt: new Date().toISOString(),
-      },
-    ];
-
-    // 예약 데이터는 빈 배열로 시작 (수기/카카오 예약만 추가됨)
-
-    // 샘플 챗봇 멘트 데이터 (10가지 상황 모두 초기화)
+    // 챗봇 멘트 데이터 (모든 상황 초기화)
     const situations: ChatbotSituation[] = [
       'channel_added',
       'today_day_use',
@@ -146,6 +55,17 @@ class DataStore {
       'reservation_request',
       'reservation_inquiry',
       'reservation_cancel',
+      'default_greeting',
+      'reservation_empty',
+      'reservation_not_found',
+      'reservation_already_cancelled',
+      'reservation_cancelled_by_user',
+      'phone_format_error',
+      'room_sold_out',
+      'saturday_day_use_confirm',
+      'saturday_stay_confirm',
+      'date_select_stay',
+      'date_select_day_use',
     ];
 
     const defaultMessages: Record<ChatbotSituation, string> = {
@@ -158,6 +78,17 @@ class DataStore {
       reservation_request: '예약 요청이 접수되었습니다. 확인 후 연락드리겠습니다.',
       reservation_inquiry: '예약 내역을 조회해드리겠습니다.',
       reservation_cancel: '예약이 취소되었습니다. 다른 도움이 필요하시면 말씀해주세요.',
+      default_greeting: '안녕하세요! 무엇을 도와드릴까요?',
+      reservation_empty: '예약 내역이 없습니다.',
+      reservation_not_found: '해당 예약을 찾을 수 없습니다.',
+      reservation_already_cancelled: '이미 취소된 예약입니다.',
+      reservation_cancelled_by_user: '예약이 취소되었습니다.',
+      phone_format_error: '전화번호 형식이 올바르지 않습니다.\n다시 입력해주세요.\n예: 010-1234-5678',
+      room_sold_out: '죄송합니다. 선택하신 날짜에는 남은 객실이 없습니다.\n다른 날짜를 선택하시거나 객실 타입을 변경해서 다시 시도해 주세요.',
+      saturday_day_use_confirm: '토요일 대실 예약 가능한 객실을 안내해드리겠습니다.',
+      saturday_stay_confirm: '토요일 숙박 예약 가능한 객실을 안내해드리겠습니다.',
+      date_select_stay: '선택하신 날짜에 예약 가능한 객실입니다.',
+      date_select_day_use: '선택하신 날짜에 대실 가능한 객실입니다.',
     };
 
     situations.forEach((situation) => {
@@ -170,23 +101,6 @@ class DataStore {
     });
 
     // chatHistories는 이미 빈 배열로 선언되어 있으므로 초기화하지 않음
-    // 실제 대화 내역은 addMessageToHistory()를 통해 추가됨
-
-    // 알림톡 템플릿 활성 코드 더미 초기값 (처음 실행 시 기본 연결용)
-    // TODO: 실제 알리고 templtCode 값으로 교체해서 사용하세요.
-    const initialTemplateActive: Array<{ displayName: string; tplCode: string }> = [
-      { displayName: '예약 요청 알림', tplCode: 'UF_2255' },
-      { displayName: '예약 취소 알림', tplCode: 'UF_4109' },
-      { displayName: '예약 확정 안내', tplCode: 'UF_2256' },
-      { displayName: '예약 거절 안내', tplCode: 'UF_2257' },
-      { displayName: '예약 취소 안내', tplCode: 'UF_4110' },
-    ];
-
-    initialTemplateActive.forEach(({ displayName, tplCode }) => {
-      if (tplCode) {
-        this.templateActiveMapping.set(displayName, tplCode);
-      }
-    });
   }
 
   // 객실 관련 메서드
@@ -747,18 +661,76 @@ class DataStore {
   }
 }
 
+// PostgreSQL 사용 시 dbStore로 전환. env에 DATABASE_URL이 있으면 DB 사용
+const useDb = Boolean(process.env.DATABASE_URL?.trim());
+
 // 싱글톤 인스턴스 - Next.js 개발 모드에서 모듈 재로드 시에도 유지되도록 전역 변수 사용
 declare global {
   // eslint-disable-next-line no-var
   var __dataStore: DataStore | undefined;
 }
 
-// 전역 변수를 사용하여 모듈 재로드 시에도 동일한 인스턴스 유지
 if (typeof globalThis.__dataStore === 'undefined') {
   globalThis.__dataStore = new DataStore();
 }
 
-export const dataStore = globalThis.__dataStore;
+const memoryStore = globalThis.__dataStore;
+
+// DATABASE_URL이 있으면 dbStore, 없으면 메모리 스토어 사용
+// dbStore는 비동기이므로 호출 시 await 필요
+export const dataStore = {
+  getRooms: () => (useDb ? import('./db-store').then((m) => m.dbStore.getRooms()) : Promise.resolve(memoryStore.getRooms())),
+  getRoom: (id: string) => (useDb ? import('./db-store').then((m) => m.dbStore.getRoom(id)) : Promise.resolve(memoryStore.getRoom(id))),
+  addRoom: (room: Parameters<DataStore['addRoom']>[0]) => (useDb ? import('./db-store').then((m) => m.dbStore.addRoom(room)) : Promise.resolve(memoryStore.addRoom(room))),
+  updateRoom: (id: string, updates: Partial<Room>) => (useDb ? import('./db-store').then((m) => m.dbStore.updateRoom(id, updates)) : Promise.resolve(memoryStore.updateRoom(id, updates))),
+  deleteRoom: (id: string) => (useDb ? import('./db-store').then((m) => m.dbStore.deleteRoom(id)) : Promise.resolve(memoryStore.deleteRoom(id))),
+  getReservations: () => (useDb ? import('./db-store').then((m) => m.dbStore.getReservations()) : Promise.resolve(memoryStore.getReservations())),
+  getReservation: (id: string) => (useDb ? import('./db-store').then((m) => m.dbStore.getReservation(id)) : Promise.resolve(memoryStore.getReservation(id))),
+  addReservation: (r: Parameters<DataStore['addReservation']>[0]) => (useDb ? import('./db-store').then((m) => m.dbStore.addReservation(r)) : Promise.resolve(memoryStore.addReservation(r))),
+  updateReservation: (id: string, u: Partial<Reservation>) => (useDb ? import('./db-store').then((m) => m.dbStore.updateReservation(id, u)) : Promise.resolve(memoryStore.updateReservation(id, u))),
+  deleteReservation: (id: string) => (useDb ? import('./db-store').then((m) => m.dbStore.deleteReservation(id)) : Promise.resolve(memoryStore.deleteReservation(id))),
+  getRoomInventoryAdjustment: (roomId: string, date: string) => (useDb ? import('./db-store').then((m) => m.dbStore.getRoomInventoryAdjustment(roomId, date)) : Promise.resolve(memoryStore.getRoomInventoryAdjustment(roomId, date))),
+  setRoomInventoryAdjustment: (roomId: string, date: string, delta: number) => (useDb ? import('./db-store').then((m) => m.dbStore.setRoomInventoryAdjustment(roomId, date, delta)) : Promise.resolve(memoryStore.setRoomInventoryAdjustment(roomId, date, delta))),
+  getRoomInventoryAdjustmentsForDate: (date: string) => (useDb ? import('./db-store').then((m) => m.dbStore.getRoomInventoryAdjustmentsForDate(date)) : Promise.resolve(memoryStore.getRoomInventoryAdjustmentsForDate(date))),
+  getRoomInventoryAdjustmentsInRange: (start: string, end: string) => (useDb ? import('./db-store').then((m) => m.dbStore.getRoomInventoryAdjustmentsInRange(start, end)) : Promise.resolve(memoryStore.getRoomInventoryAdjustmentsInRange(start, end))),
+  getReservationTypes: () => (useDb ? import('./db-store').then((m) => m.dbStore.getReservationTypes()) : Promise.resolve(memoryStore.getReservationTypes())),
+  addReservationType: (t: Parameters<DataStore['addReservationType']>[0]) => (useDb ? import('./db-store').then((m) => m.dbStore.addReservationType(t)) : Promise.resolve(memoryStore.addReservationType(t))),
+  updateReservationType: (id: string, u: Partial<ReservationType>) => (useDb ? import('./db-store').then((m) => m.dbStore.updateReservationType(id, u)) : Promise.resolve(memoryStore.updateReservationType(id, u))),
+  deleteReservationType: (id: string) => (useDb ? import('./db-store').then((m) => m.dbStore.deleteReservationType(id)) : Promise.resolve(memoryStore.deleteReservationType(id))),
+  getCustomers: () => (useDb ? import('./db-store').then((m) => m.dbStore.getCustomers()) : Promise.resolve(memoryStore.getCustomers())),
+  getCustomer: (id: string) => (useDb ? import('./db-store').then((m) => m.dbStore.getCustomer(id)) : Promise.resolve(memoryStore.getCustomer(id))),
+  getCustomerByUserId: (userId: string) => (useDb ? import('./db-store').then((m) => m.dbStore.getCustomerByUserId(userId)) : Promise.resolve(memoryStore.getCustomerByUserId(userId))),
+  getCustomerByPhone: (phone: string) => (useDb ? import('./db-store').then((m) => m.dbStore.getCustomerByPhone(phone)) : Promise.resolve(memoryStore.getCustomerByPhone(phone))),
+  getOrCreateCustomerForManual: (name: string, phone: string) => (useDb ? import('./db-store').then((m) => m.dbStore.getOrCreateCustomerForManual(name, phone)) : Promise.resolve(memoryStore.getOrCreateCustomerForManual(name, phone))),
+  addCustomer: (d: Parameters<DataStore['addCustomer']>[0]) => (useDb ? import('./db-store').then((m) => m.dbStore.addCustomer(d)) : Promise.resolve(memoryStore.addCustomer(d))),
+  updateCustomer: (id: string, u: Parameters<DataStore['updateCustomer']>[1]) => (useDb ? import('./db-store').then((m) => m.dbStore.updateCustomer(id, u)) : Promise.resolve(memoryStore.updateCustomer(id, u))),
+  getOrCreateCustomerByUserId: (userId: string, d: Parameters<DataStore['getOrCreateCustomerByUserId']>[1]) => (useDb ? import('./db-store').then((m) => m.dbStore.getOrCreateCustomerByUserId(userId, d)) : Promise.resolve(memoryStore.getOrCreateCustomerByUserId(userId, d))),
+  isRoomAvailable: (roomId: string, checkIn: string, checkOut: string, excludeId?: string) => (useDb ? import('./db-store').then((m) => m.dbStore.isRoomAvailable(roomId, checkIn, checkOut, excludeId)) : Promise.resolve(memoryStore.isRoomAvailable(roomId, checkIn, checkOut, excludeId))),
+  getChatbotMessages: () => (useDb ? import('./db-store').then((m) => m.dbStore.getChatbotMessages()) : Promise.resolve(memoryStore.getChatbotMessages())),
+  getChatbotMessage: (situation: import('@/types').ChatbotSituation) => (useDb ? import('./db-store').then((m) => m.dbStore.getChatbotMessage(situation)) : Promise.resolve(memoryStore.getChatbotMessage(situation))),
+  updateChatbotMessage: (situation: import('@/types').ChatbotSituation, msg: string) => (useDb ? import('./db-store').then((m) => m.dbStore.updateChatbotMessage(situation, msg)) : Promise.resolve(memoryStore.updateChatbotMessage(situation, msg))),
+  getChatHistories: () => (useDb ? import('./db-store').then((m) => m.dbStore.getChatHistories()) : Promise.resolve(memoryStore.getChatHistories())),
+  getChatHistory: (id: string) => (useDb ? import('./db-store').then((m) => m.dbStore.getChatHistory(id)) : Promise.resolve(memoryStore.getChatHistory(id))),
+  getChatHistoryByCustomerId: (id: string) => (useDb ? import('./db-store').then((m) => m.dbStore.getChatHistoryByCustomerId(id)) : Promise.resolve(memoryStore.getChatHistoryByCustomerId(id))),
+  getChatHistoryByUserId: (userId: string) => (useDb ? import('./db-store').then((m) => m.dbStore.getChatHistoryByUserId(userId)) : Promise.resolve(memoryStore.getChatHistoryByUserId(userId))),
+  addChatHistory: (h: Parameters<DataStore['addChatHistory']>[0]) => (useDb ? import('./db-store').then((m) => m.dbStore.addChatHistory(h)) : Promise.resolve(memoryStore.addChatHistory(h))),
+  getOrCreateChatHistoryByCustomerId: (id: string) => (useDb ? import('./db-store').then((m) => m.dbStore.getOrCreateChatHistoryByCustomerId(id)) : Promise.resolve(memoryStore.getOrCreateChatHistoryByCustomerId(id))),
+  getOrCreateChatHistory: (userId: string, userName?: string) => (useDb ? import('./db-store').then((m) => m.dbStore.getOrCreateChatHistory(userId, userName)) : Promise.resolve(memoryStore.getOrCreateChatHistory(userId, userName))),
+  addMessageToHistory: (userId: string, msg: Parameters<DataStore['addMessageToHistory']>[1]) => (useDb ? import('./db-store').then((m) => m.dbStore.addMessageToHistory(userId, msg)) : Promise.resolve(memoryStore.addMessageToHistory(userId, msg))),
+  updateChatHistory: (id: string, u: Parameters<DataStore['updateChatHistory']>[1]) => (useDb ? import('./db-store').then((m) => m.dbStore.updateChatHistory(id, u)) : Promise.resolve(memoryStore.updateChatHistory(id, u))),
+  savePendingReservation: (userId: string, d: Omit<import('@/types').PendingReservation, 'createdAt'>) => (useDb ? import('./db-store').then((m) => m.dbStore.savePendingReservation(userId, d)) : Promise.resolve(memoryStore.savePendingReservation(userId, d))),
+  getPendingReservation: (userId: string) => (useDb ? import('./db-store').then((m) => m.dbStore.getPendingReservation(userId)) : Promise.resolve(memoryStore.getPendingReservation(userId))),
+  deletePendingReservation: (userId: string) => (useDb ? import('./db-store').then((m) => m.dbStore.deletePendingReservation(userId)) : Promise.resolve(memoryStore.deletePendingReservation(userId))),
+  getTemplateHistory: (displayName: string) => (useDb ? import('./db-store').then((m) => m.dbStore.getTemplateHistory(displayName)) : Promise.resolve(memoryStore.getTemplateHistory(displayName))),
+  addTemplateHistory: (displayName: string, tplCode: string, content: string) => (useDb ? import('./db-store').then((m) => m.dbStore.addTemplateHistory(displayName, tplCode, content)) : Promise.resolve(memoryStore.addTemplateHistory(displayName, tplCode, content))),
+  deleteTemplateHistoryItem: (displayName: string, tplCode: string) => (useDb ? import('./db-store').then((m) => m.dbStore.deleteTemplateHistoryItem(displayName, tplCode)) : Promise.resolve(memoryStore.deleteTemplateHistoryItem(displayName, tplCode))),
+  setTemplateActive: (displayName: string, tplCode: string) => (useDb ? import('./db-store').then((m) => m.dbStore.setTemplateActive(displayName, tplCode)) : Promise.resolve(memoryStore.setTemplateActive(displayName, tplCode))),
+  getTemplateActive: (displayName: string) => (useDb ? import('./db-store').then((m) => m.dbStore.getTemplateActive(displayName)) : Promise.resolve(memoryStore.getTemplateActive(displayName))),
+  getChatbotMessageHistory: (situation: import('@/types').ChatbotSituation) => (useDb ? import('./db-store').then((m) => m.dbStore.getChatbotMessageHistory(situation)) : Promise.resolve(memoryStore.getChatbotMessageHistory(situation))),
+  addChatbotMessageHistory: (situation: import('@/types').ChatbotSituation, msg: string) => (useDb ? import('./db-store').then((m) => m.dbStore.addChatbotMessageHistory(situation, msg)) : Promise.resolve(memoryStore.addChatbotMessageHistory(situation, msg))),
+  deleteChatbotMessageHistoryItem: (situation: import('@/types').ChatbotSituation, idx: number) => (useDb ? import('./db-store').then((m) => m.dbStore.deleteChatbotMessageHistoryItem(situation, idx)) : Promise.resolve(memoryStore.deleteChatbotMessageHistoryItem(situation, idx))),
+  cleanupExpiredReservations: () => (useDb ? import('./db-store').then((m) => m.dbStore.cleanupExpiredReservations()) : Promise.resolve(memoryStore.cleanupExpiredReservations())),
+};
 
 // 관리자 채팅 입력: 모듈 레벨 Map 사용 (Next.js 번들/캐시 이슈 회피)
 const pendingAdminMessagesMap = new Map<string, string>();

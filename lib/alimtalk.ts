@@ -284,7 +284,7 @@ function sanitizeDisplayName(displayName: string): string {
 export async function getTemplateCodeByDisplayName(displayName: string): Promise<string | null> {
   const list = await getTemplateList();
   const sendable = list.filter((x) => x.inspStatus === 'APR' && x.status !== 'S');
-  const active = dataStore.getTemplateActive(displayName);
+  const active = await dataStore.getTemplateActive(displayName);
 
   // 1순위: 대표 템플릿이 전송 가능한 상태면 그대로 사용
   if (active) {
@@ -295,7 +295,7 @@ export async function getTemplateCodeByDisplayName(displayName: string): Promise
   }
 
   // 2순위: 전송 가능한 템플릿들 중에서 "가장 최근에 사용한" 템플릿 선택
-  const history = dataStore.getTemplateHistory(displayName);
+  const history = await dataStore.getTemplateHistory(displayName);
   for (const h of history) {
     const found = sendable.find((x) => x.templtCode === h.tplCode);
     if (found) {
@@ -303,7 +303,17 @@ export async function getTemplateCodeByDisplayName(displayName: string): Promise
     }
   }
 
-  // 3순위: 아무 전송 가능한 템플릿도 없으면 null (호출부에서 콘솔만 찍고 넘어가도록 처리)
+  // 3순위: 알리고 템플릿 이름(templtName)을 표시 이름과 동일하게 맞춰 둔 경우 자동 매칭
+  // - 공백 제거 후 완전 일치하는 templtName을 가진 승인 템플릿을 찾는다.
+  const sanitizedDisplay = sanitizeDisplayName(displayName);
+  const byName = sendable.find(
+    (x) => sanitizeDisplayName(x.templtName ?? '') === sanitizedDisplay
+  );
+  if (byName) {
+    return byName.templtCode;
+  }
+
+  // 4순위: 아무 전송 가능한 템플릿도 없으면 null (호출부에서 콘솔만 찍고 넘어가도록 처리)
   return null;
 }
 

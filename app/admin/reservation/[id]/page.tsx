@@ -21,40 +21,26 @@ export default function AdminReservationPage() {
 
   const fetchReservation = async () => {
     try {
-      console.log('[예약 페이지] 예약 조회 시작:', reservationId);
-      
       const [reservationRes, roomsRes] = await Promise.all([
         fetch(`/api/reservations/${reservationId}`),
         fetch('/api/rooms'),
       ]);
 
-      console.log('[예약 페이지] API 응답:', {
-        reservationStatus: reservationRes.status,
-        roomsStatus: roomsRes.status,
-      });
-
       if (!reservationRes.ok) {
-        const errorData = await reservationRes.json().catch(() => ({}));
-        console.error('[예약 페이지] 예약 조회 실패:', {
-          status: reservationRes.status,
-          error: errorData,
-        });
         throw new Error(`예약을 찾을 수 없습니다. (${reservationRes.status})`);
       }
 
-      const reservationData: ReservationWithGuest = await reservationRes.json();
-      const roomsData: Room[] = await roomsRes.json();
-      const roomData = roomsData.find((r) => r.id === reservationData.roomId);
-
-      console.log('[예약 페이지] 예약 데이터 로드 완료:', {
-        reservationId: reservationData.id,
-        roomType: roomData?.type,
-      });
-
+      const reservationRaw = await reservationRes.json().catch(() => null);
+      const roomsRaw = await roomsRes.json().catch(() => []);
+      const reservationData = reservationRaw && typeof reservationRaw === 'object' && reservationRaw !== null ? reservationRaw as ReservationWithGuest : null;
+      const roomsData = Array.isArray(roomsRaw) ? roomsRaw : [];
+      if (!reservationData?.id) {
+        throw new Error('예약 정보를 불러올 수 없습니다.');
+      }
+      const roomData = roomsData.find((r) => r?.id === reservationData.roomId) ?? null;
       setReservation(reservationData);
-      setRoom(roomData ?? null);
+      setRoom(roomData);
     } catch (error) {
-      console.error('[예약 페이지] 오류:', error);
       alert(`예약 정보를 불러오는데 실패했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
     } finally {
       setLoading(false);
@@ -74,8 +60,7 @@ export default function AdminReservationPage() {
         alert('예약이 확정되었습니다.');
         fetchReservation();
       } else throw new Error('예약 확정에 실패했습니다.');
-    } catch (e) {
-      console.error(e);
+    } catch {
       alert('예약 확정에 실패했습니다.');
     } finally {
       setProcessing(false);
@@ -95,8 +80,7 @@ export default function AdminReservationPage() {
         alert('예약이 거절되었습니다.');
         fetchReservation();
       } else throw new Error('예약 거절에 실패했습니다.');
-    } catch (e) {
-      console.error(e);
+    } catch {
       alert('예약 거절에 실패했습니다.');
     } finally {
       setProcessing(false);
@@ -128,10 +112,7 @@ export default function AdminReservationPage() {
             예약 목록으로
           </button>
           <button
-            onClick={() => {
-              console.log('[예약 페이지] 새로고침 시도');
-              fetchReservation();
-            }}
+            onClick={() => fetchReservation()}
             className="px-4 py-2 bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600"
           >
             다시 시도

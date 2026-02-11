@@ -15,12 +15,12 @@ export async function GET(request: Request) {
   const end = searchParams.get('end');
 
   if (start && end) {
-    const items = dataStore.getRoomInventoryAdjustmentsInRange(start, end);
+    const items = await dataStore.getRoomInventoryAdjustmentsInRange(start, end);
     return NextResponse.json({ items });
   }
 
   if (date) {
-    const items = dataStore.getRoomInventoryAdjustmentsForDate(date);
+    const items = await dataStore.getRoomInventoryAdjustmentsForDate(date);
     return NextResponse.json({ items });
   }
 
@@ -44,12 +44,12 @@ export async function POST(request: Request) {
     return toBadRequest('roomId, date, delta(number) 값이 모두 필요합니다.');
   }
 
-  const room = dataStore.getRoom(roomId) as Room | undefined;
+  const room = (await dataStore.getRoom(roomId)) as Room | undefined;
   if (!room) {
     return toBadRequest('존재하지 않는 객실입니다.');
   }
 
-  const reservations = dataStore.getReservations();
+  const reservations = await dataStore.getReservations();
   const soldCount = getDailyRoomSoldCount(reservations, roomId, date);
   const adjustedInventory = (room.inventory ?? 0) + delta;
 
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     return toBadRequest('이미 판매된 수량보다 적게 설정할 수 없습니다.');
   }
 
-  const saved = dataStore.setRoomInventoryAdjustment(roomId, date, delta);
+  const saved = await dataStore.setRoomInventoryAdjustment(roomId, date, delta);
 
   return NextResponse.json({
     roomId: saved.roomId,

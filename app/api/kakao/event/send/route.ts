@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error('[event/send]', error);
+    console.error('[카카오 이벤트 발송]', error);
     const message = error instanceof Error ? error.message : '이벤트 발송 실패';
     return NextResponse.json(
       { error: message, stack: error instanceof Error ? error.stack : undefined },

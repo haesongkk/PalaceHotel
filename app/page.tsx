@@ -535,8 +535,7 @@ function ChannelShareCard({ data, loading }: { data: ChannelSharePoint[]; loadin
                 >
                   {data.map((entry, index) => (
                     <Cell
-                      // eslint-disable-next-line react/no-array-index-key
-                      key={`cell-${index}`}
+                      key={entry.name}
                       fill={CHANNEL_COLORS[index % CHANNEL_COLORS.length]}
                     />
                   ))}
@@ -973,7 +972,6 @@ function buildOccupancyAdr(
     days.forEach((d) => {
       if (checkInStr <= d && d < checkOutStr) {
         const entry = byDate[d];
-        // occupancy: 나중에 비율 계산을 위해 방 1개 차지했다고 가정
         entry.occupancy += 1;
         entry.adrSum += nightlyRate;
         entry.adrCount += 1;
@@ -1019,24 +1017,30 @@ export default function Dashboard() {
           fetch('/api/reservation-types'),
           fetch(`/api/inventory-adjustments?date=${encodeURIComponent(todayKey)}`),
         ]);
-        const reservationsData: ReservationWithGuest[] = await reservationsRes.json();
-        const roomsData: Room[] = await roomsRes.json();
-        const typesData: ReservationType[] = await typesRes.json();
-        const adjustmentsJson: { items?: RoomInventoryAdjustment[] } = await adjustmentsRes.json();
+        const reservationsRaw = await reservationsRes.json().catch(() => []);
+        const roomsRaw = await roomsRes.json().catch(() => []);
+        const typesRaw = await typesRes.json().catch(() => []);
+        const adjustmentsRaw = await adjustmentsRes.json().catch(() => ({}));
+        const reservationsData = Array.isArray(reservationsRaw) ? reservationsRaw : [];
+        const roomsData = Array.isArray(roomsRaw) ? roomsRaw : [];
+        const typesData = Array.isArray(typesRaw) ? typesRaw : [];
+        const adjustmentsItems = adjustmentsRaw?.items;
+        const inventoryAdjustmentsList = Array.isArray(adjustmentsItems) ? adjustmentsItems : [];
+
         setReservations(reservationsData);
         setRooms(roomsData);
         setReservationTypes(typesData);
         setMetrics(calculateMetrics(reservationsData, roomsData));
         setTodayReservations(getEffectiveReservationsForDate(reservationsData, new Date()));
         setTodoItems(buildTodoItems(reservationsData, roomsData));
-        setInventoryAdjustments(adjustmentsJson.items ?? []);
+        setInventoryAdjustments(inventoryAdjustmentsList);
         const range = trendPeriod === '7d' ? 7 : 30;
         setReservationTrend(buildReservationTrend(reservationsData, range));
         setOccupancyAdr(buildOccupancyAdr(reservationsData, roomsData, range));
         setRoomTypeStats(buildRoomTypeStats(reservationsData, roomsData, range));
         setChannelShare(buildChannelShare(reservationsData, typesData));
       } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
+        console.error('[대시보드] 데이터 로드 실패', error);
       } finally {
         setLoading(false);
       }

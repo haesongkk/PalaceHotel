@@ -32,15 +32,18 @@ export default function ChatHistoriesPage() {
         fetch('/api/reservations'),
         fetch('/api/rooms'),
       ]);
-      const historiesData = await historiesRes.json();
-      const reservationsData = await reservationsRes.json();
-      const roomsData = await roomsRes.json();
+      const historiesRaw = await historiesRes.json().catch(() => []);
+      const reservationsRaw = await reservationsRes.json().catch(() => []);
+      const roomsRaw = await roomsRes.json().catch(() => []);
+      const historiesData = Array.isArray(historiesRaw) ? historiesRaw : [];
+      const reservationsData = Array.isArray(reservationsRaw) ? reservationsRaw : [];
+      const roomsData = Array.isArray(roomsRaw) ? roomsRaw : [];
       setHistories(historiesData);
-      setReservations(reservationsData ?? []);
-      setRooms(roomsData ?? []);
+      setReservations(reservationsData);
+      setRooms(roomsData);
       return historiesData;
     } catch (error) {
-      console.error('Failed to fetch data:', error);
+      console.error('[대화 내역] 로드 실패', error);
       return null;
     } finally {
       setLoading(false);
@@ -85,12 +88,13 @@ export default function ChatHistoriesPage() {
   };
 
   const getLastMessage = (history: ChatHistoryWithCustomer) => {
-    if (history.messages.length === 0) return '메시지 없음';
-    const lastMsg = history.messages[history.messages.length - 1];
-    
-    // 사용자 메시지
+    const messages = history?.messages;
+    if (!Array.isArray(messages) || messages.length === 0) return '메시지 없음';
+    const lastMsg = messages[messages.length - 1];
+    if (!lastMsg) return '메시지';
+
     if (lastMsg.sender === 'user' && lastMsg.userMessage) {
-      const text = lastMsg.userMessage.utterance;
+      const text = lastMsg.userMessage?.utterance ?? '';
       return text.length > 50 ? text.substring(0, 50) + '...' : text;
     }
     
@@ -108,8 +112,7 @@ export default function ChatHistoriesPage() {
         }
       }
     }
-    
-    // 하위 호환성
+
     if (lastMsg.content) {
       return lastMsg.content.length > 50
         ? lastMsg.content.substring(0, 50) + '...'

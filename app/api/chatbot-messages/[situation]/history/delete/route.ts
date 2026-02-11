@@ -17,7 +17,7 @@ export async function POST(
       return NextResponse.json({ error: 'index 필수 (number)' }, { status: 400 });
     }
     const situation = params.situation as ChatbotSituation;
-    dataStore.deleteChatbotMessageHistoryItem(situation, index);
+    await dataStore.deleteChatbotMessageHistoryItem(situation, index);
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: '삭제 실패' }, { status: 500 });

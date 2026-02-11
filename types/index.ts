@@ -100,16 +100,28 @@ export interface RoomInventoryAdjustment {
 }
 
 // 카카오톡 챗봇 멘트 타입
-export type ChatbotSituation = 
-  | 'channel_added'           // 채널 추가시
-  | 'today_day_use'           // 오늘대실 선택시
-  | 'today_stay'              // 오늘숙박 선택시
-  | 'saturday_reservation'    // 토요일예약 선택시
-  | 'make_reservation'        // 예약하기 선택시
-  | 'phone_input_request'     // 전화번호 입력 요청시
-  | 'reservation_request'     // 예약 요청시
-  | 'reservation_inquiry'     // 예약내역 조회시
-  | 'reservation_cancel';     // 예약 취소시
+export type ChatbotSituation =
+  | 'channel_added'
+  | 'today_day_use'
+  | 'today_stay'
+  | 'saturday_reservation'
+  | 'make_reservation'
+  | 'phone_input_request'
+  | 'reservation_request'
+  | 'reservation_inquiry'
+  | 'reservation_cancel'
+  // 아래는 하드코딩 제거용 추가 상황
+  | 'default_greeting'             // 상황 없을 때 기본 인사
+  | 'reservation_empty'            // 예약 내역 없음
+  | 'reservation_not_found'        // 해당 예약 없음
+  | 'reservation_already_cancelled'// 이미 취소된 예약
+  | 'reservation_cancelled_by_user'// 예약 진행 중 사용자 취소
+  | 'phone_format_error'           // 전화번호 형식 오류 안내
+  | 'room_sold_out'                // 재고 없음 안내
+  | 'saturday_day_use_confirm'      // 토요일 대실 선택 시
+  | 'saturday_stay_confirm'        // 토요일 숙박 선택 시
+  | 'date_select_stay'             // 숙박 날짜선택 후
+  | 'date_select_day_use';        // 대실 날짜선택 후
 
 export interface ChatbotMessage {
   situation: ChatbotSituation;
@@ -160,7 +172,7 @@ export interface ChatMessage {
     };
   };
   
-  // 하위 호환성을 위한 content 필드 (deprecated, 렌더링용으로만 사용)
+  /** 대화 목록/렌더링용 텍스트 (botMessage.response에서 추출한 값) */
   content?: string;
 }
 
