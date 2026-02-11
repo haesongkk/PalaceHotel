@@ -1,10 +1,10 @@
 'use client';
 
-import { Reservation, Room } from '@/types';
+import { ReservationWithGuest, Room } from '@/types';
 import ConversationPanel from '@/components/ConversationPanel';
 
 interface ReservationConversationPanelProps {
-  reservation: Reservation;
+  reservation: ReservationWithGuest;
   rooms: Room[];
   onClose: () => void;
   onStatusChange: () => void;

@@ -17,14 +17,17 @@ export async function GET(
     console.log('[API] 현재 저장된 예약 ID 목록:', allReservations.map(r => r.id));
     return NextResponse.json({ error: 'Reservation not found' }, { status: 404 });
   }
-  
-  console.log('[API] 예약 조회 성공:', {
-    id: reservation.id,
-    guestName: reservation.guestName,
-    status: reservation.status,
-  });
-  
-  return NextResponse.json(reservation);
+
+  const customer = dataStore.getCustomer(reservation.customerId);
+  const expanded = {
+    ...reservation,
+    guestName: customer?.name ?? '',
+    guestPhone: customer?.phone ?? '',
+    userId: customer?.userId,
+  };
+
+  console.log('[API] 예약 조회 성공:', { id: reservation.id, guestName: expanded.guestName, status: reservation.status });
+  return NextResponse.json(expanded);
 }
 
 export async function PUT(
@@ -72,14 +75,15 @@ export async function PUT(
     const checkInTime = room ? (isDayUse ? room.dayUseCheckIn : room.stayCheckIn) : undefined;
     const checkOutTime = room ? (isDayUse ? room.dayUseCheckOut : room.stayCheckOut) : undefined;
 
+    const guestPhone = dataStore.getCustomer(reservation.customerId)?.phone;
     if (
       newStatus &&
       oldStatus === 'pending' &&
       (newStatus === 'confirmed' || newStatus === 'rejected')
     ) {
-      if (reservation.guestPhone) {
+      if (guestPhone) {
         sendReservationStatusAlimtalk(
-          reservation.guestPhone,
+          guestPhone,
           newStatus,
           {
             roomType,
@@ -96,8 +100,8 @@ export async function PUT(
       }
     }
 
-    if (newStatus === 'cancelled_by_admin' && reservation.guestPhone) {
-      sendReservationCancelledByAdminAlimtalk(reservation.guestPhone, {
+    if (newStatus === 'cancelled_by_admin' && guestPhone) {
+      sendReservationCancelledByAdminAlimtalk(guestPhone, {
         roomType,
         checkIn: reservation.checkIn,
         checkOut: reservation.checkOut,

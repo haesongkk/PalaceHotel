@@ -2,14 +2,14 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/Layout';
-import { ChatHistory, Reservation, Room } from '@/types';
+import { ChatHistory, ChatHistoryWithCustomer, ReservationWithGuest, Room } from '@/types';
 import ConversationPanel from '@/components/ConversationPanel';
 
 export default function ChatHistoriesPage() {
-  const [histories, setHistories] = useState<ChatHistory[]>([]);
-  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [histories, setHistories] = useState<ChatHistoryWithCustomer[]>([]);
+  const [reservations, setReservations] = useState<ReservationWithGuest[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [selectedHistory, setSelectedHistory] = useState<ChatHistory | null>(null);
+  const [selectedHistory, setSelectedHistory] = useState<ChatHistoryWithCustomer | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -25,7 +25,7 @@ export default function ChatHistoriesPage() {
     fetchData();
   }, []);
 
-  const fetchData = async (): Promise<ChatHistory[] | null> => {
+  const fetchData = async (): Promise<ChatHistoryWithCustomer[] | null> => {
     try {
       const [historiesRes, reservationsRes, roomsRes] = await Promise.all([
         fetch('/api/chat-histories'),
@@ -47,7 +47,7 @@ export default function ChatHistoriesPage() {
     }
   };
 
-  const handleView = (history: ChatHistory) => {
+  const handleView = (history: ChatHistoryWithCustomer) => {
     setSelectedHistory(history);
   };
 
@@ -68,7 +68,7 @@ export default function ChatHistoriesPage() {
   };
 
   // 유저 전화번호: 대화 내역 저장값 우선, 없으면 예약에서 매칭
-  const getDisplayPhone = (history: ChatHistory): string => {
+  const getDisplayPhone = (history: ChatHistoryWithCustomer): string => {
     if (history.userPhone?.trim()) return history.userPhone.trim();
     const r = reservations.find(
       (res) => res.userId === history.userId || res.guestName === history.userId
@@ -76,7 +76,7 @@ export default function ChatHistoriesPage() {
     return r?.guestPhone ?? '-';
   };
 
-  const getRawPhone = (history: ChatHistory): string | null => {
+  const getRawPhone = (history: ChatHistoryWithCustomer): string | null => {
     if (history.userPhone?.trim()) return history.userPhone.trim();
     const r = reservations.find(
       (res) => res.userId === history.userId || res.guestName === history.userId
@@ -84,7 +84,7 @@ export default function ChatHistoriesPage() {
     return r?.guestPhone?.trim() || null;
   };
 
-  const getLastMessage = (history: ChatHistory) => {
+  const getLastMessage = (history: ChatHistoryWithCustomer) => {
     if (history.messages.length === 0) return '메시지 없음';
     const lastMsg = history.messages[history.messages.length - 1];
     

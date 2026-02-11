@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import type { Reservation, Room } from '@/types';
+import type { ReservationWithGuest, Room } from '@/types';
 import { formatStayLabel } from '@/lib/reservation-utils';
 
 export default function AdminReservationPage() {
@@ -10,7 +10,7 @@ export default function AdminReservationPage() {
   const router = useRouter();
   const reservationId = params.id as string;
 
-  const [reservation, setReservation] = useState<Reservation | null>(null);
+  const [reservation, setReservation] = useState<ReservationWithGuest | null>(null);
   const [room, setRoom] = useState<Room | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -42,7 +42,7 @@ export default function AdminReservationPage() {
         throw new Error(`예약을 찾을 수 없습니다. (${reservationRes.status})`);
       }
 
-      const reservationData: Reservation = await reservationRes.json();
+      const reservationData: ReservationWithGuest = await reservationRes.json();
       const roomsData: Room[] = await roomsRes.json();
       const roomData = roomsData.find((r) => r.id === reservationData.roomId);
 

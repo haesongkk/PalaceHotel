@@ -1,10 +1,10 @@
 'use client';
 
-import { Reservation, ReservationStatus, Room } from '@/types';
+import { ReservationWithGuest, ReservationStatus, Room } from '@/types';
 import AppModal from '@/components/AppModal';
 
 interface ReservationModalProps {
-  reservation: Reservation;
+  reservation: ReservationWithGuest;
   rooms: Room[];
   onClose: () => void;
 }

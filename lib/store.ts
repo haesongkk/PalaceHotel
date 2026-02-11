@@ -1,10 +1,11 @@
-import { Room, Reservation, ChatbotMessage, ChatHistory, ChatMessage, ChatbotSituation, PendingReservation, ReservationType, RoomInventoryAdjustment } from '@/types';
+import { Room, Reservation, ChatbotMessage, ChatHistory, ChatMessage, ChatbotSituation, PendingReservation, ReservationType, RoomInventoryAdjustment, Customer } from '@/types';
 
 // 메모리 데이터 저장소
 class DataStore {
   private rooms: Room[] = [];
   private reservations: Reservation[] = [];
   private reservationTypes: ReservationType[] = [];
+  private customers: Customer[] = [];
   private chatbotMessages: Map<ChatbotSituation, ChatbotMessage> = new Map();
   private chatHistories: ChatHistory[] = [];
   private pendingReservations: Map<string, PendingReservation> = new Map(); // userId -> PendingReservation
@@ -132,8 +133,9 @@ class DataStore {
       },
     ];
 
-    // 예약 데이터: 2월 수기 예약 더미 데이터
-    this.reservations = this.buildFebruaryDummyReservations();
+    // 더미 고객 생성 후 예약 데이터 (정규화: 예약은 customerId만 보관)
+    const dummyCustomers = this.buildDummyCustomers();
+    this.reservations = this.buildFebruaryDummyReservations(dummyCustomers);
 
     // 샘플 챗봇 멘트 데이터 (10가지 상황 모두 초기화)
     const situations: ChatbotSituation[] = [
@@ -189,7 +191,21 @@ class DataStore {
     });
   }
 
-  private buildFebruaryDummyReservations(): Reservation[] {
+  /** 더미 예약용 고객 여러 명 생성 (정규화: 고객은 별도 테이블) */
+  private buildDummyCustomers(): Customer[] {
+    const now = new Date().toISOString();
+    const list: Customer[] = [
+      { id: 'dummy-cust-1', name: '더미고객1', phone: '010-1111-1111', createdAt: now, updatedAt: now },
+      { id: 'dummy-cust-2', name: '더미고객2', phone: '010-2222-2222', createdAt: now, updatedAt: now },
+      { id: 'dummy-cust-3', name: '더미고객3', phone: '010-3333-3333', createdAt: now, updatedAt: now },
+      { id: 'dummy-cust-4', name: '더미고객4', phone: '010-4444-4444', createdAt: now, updatedAt: now },
+      { id: 'dummy-cust-5', name: '더미고객5', phone: '010-5555-5555', createdAt: now, updatedAt: now },
+    ];
+    list.forEach((c) => this.customers.push(c));
+    return list;
+  }
+
+  private buildFebruaryDummyReservations(dummyCustomers: Customer[]): Reservation[] {
     const year = new Date().getFullYear();
     const toISO = (y: number, m: number, d: number) =>
       new Date(y, m - 1, d, 12, 0, 0).toISOString();
@@ -211,25 +227,24 @@ class DataStore {
       return total || 30000;
     };
 
-    // [year, MMDD] 형태 - 201=2/1, 228=2/28, 301=3/1
     const dummySpecs: Array<{ roomId: string; checkIn: [number, number]; checkOut: [number, number]; memo?: string }> = [
-      { roomId: '1', checkIn: [year, 201], checkOut: [year, 202],  memo: '전화 예약' },
-      { roomId: '2', checkIn: [year, 203], checkOut: [year, 205],  memo: 'OTA 예약' },
-      { roomId: '3', checkIn: [year, 205], checkOut: [year, 207], },
-      { roomId: '4', checkIn: [year, 207], checkOut: [year, 208],  memo: '단체 할인' },
-      { roomId: '1', checkIn: [year, 208], checkOut: [year, 210], },
-      { roomId: '2', checkIn: [year, 210], checkOut: [year, 212],  memo: '회원 할인' },
-      { roomId: '3', checkIn: [year, 212], checkOut: [year, 214], },
-      { roomId: '4', checkIn: [year, 214], checkOut: [year, 216],  memo: '전화 예약' },
-      { roomId: '1', checkIn: [year, 215], checkOut: [year, 216], },
-      { roomId: '2', checkIn: [year, 217], checkOut: [year, 219],  memo: '대실' },
-      { roomId: '3', checkIn: [year, 218], checkOut: [year, 220], },
-      { roomId: '4', checkIn: [year, 220], checkOut: [year, 222],  memo: 'OTA 예약' },
-      { roomId: '1', checkIn: [year, 221], checkOut: [year, 223], },
-      { roomId: '2', checkIn: [year, 223], checkOut: [year, 225],  memo: '주말 예약' },
-      { roomId: '3', checkIn: [year, 225], checkOut: [year, 227], },
-      { roomId: '4', checkIn: [year, 227], checkOut: [year, 228],  memo: '전화 예약' },
-      { roomId: '1', checkIn: [year, 228], checkOut: [year, 301], },
+      { roomId: '1', checkIn: [year, 201], checkOut: [year, 202], memo: '전화 예약' },
+      { roomId: '2', checkIn: [year, 203], checkOut: [year, 205], memo: 'OTA 예약' },
+      { roomId: '3', checkIn: [year, 205], checkOut: [year, 207] },
+      { roomId: '4', checkIn: [year, 207], checkOut: [year, 208], memo: '단체 할인' },
+      { roomId: '1', checkIn: [year, 208], checkOut: [year, 210] },
+      { roomId: '2', checkIn: [year, 210], checkOut: [year, 212], memo: '회원 할인' },
+      { roomId: '3', checkIn: [year, 212], checkOut: [year, 214] },
+      { roomId: '4', checkIn: [year, 214], checkOut: [year, 216], memo: '전화 예약' },
+      { roomId: '1', checkIn: [year, 215], checkOut: [year, 216] },
+      { roomId: '2', checkIn: [year, 217], checkOut: [year, 219], memo: '대실' },
+      { roomId: '3', checkIn: [year, 218], checkOut: [year, 220] },
+      { roomId: '4', checkIn: [year, 220], checkOut: [year, 222], memo: 'OTA 예약' },
+      { roomId: '1', checkIn: [year, 221], checkOut: [year, 223] },
+      { roomId: '2', checkIn: [year, 223], checkOut: [year, 225], memo: '주말 예약' },
+      { roomId: '3', checkIn: [year, 225], checkOut: [year, 227] },
+      { roomId: '4', checkIn: [year, 227], checkOut: [year, 228], memo: '전화 예약' },
+      { roomId: '1', checkIn: [year, 228], checkOut: [year, 301] },
     ];
 
     const base = Date.now();
@@ -246,11 +261,11 @@ class DataStore {
       const checkOut = toISO(y, mOut, dOut);
       const room = this.rooms.find((r) => r.id === s.roomId);
       const totalPrice = room ? calcPrice(room, checkIn, checkOut) : 50000;
+      const customer = dummyCustomers[i % dummyCustomers.length];
       list.push({
         id: `dummy-feb-${i + 1}-${base}`,
         roomId: s.roomId,
-        guestName: '',
-        guestPhone: '',
+        customerId: customer.id,
         checkIn,
         checkOut,
         status: 'confirmed',
@@ -429,6 +444,95 @@ class DataStore {
     return true;
   }
 
+  // 고객 관련 메서드
+  getCustomers(): Customer[] {
+    return this.customers;
+  }
+
+  getCustomer(id: string): Customer | undefined {
+    return this.customers.find((c) => c.id === id);
+  }
+
+  getCustomerByUserId(userId: string): Customer | undefined {
+    return this.customers.find((c) => c.userId === userId);
+  }
+
+  getCustomerByPhone(phone: string): Customer | undefined {
+    const normalized = phone.replace(/\D/g, '');
+    return this.customers.find((c) => c.phone.replace(/\D/g, '') === normalized);
+  }
+
+  /** 수기 예약용: 전화번호로 고객 찾거나 없으면 생성 후 반환 */
+  getOrCreateCustomerForManual(name: string, phone: string): Customer {
+    const trimmedPhone = phone.trim();
+    if (trimmedPhone) {
+      const existing = this.getCustomerByPhone(trimmedPhone);
+      if (existing) {
+        if (name.trim() && existing.name !== name.trim()) {
+          this.updateCustomer(existing.id, { name: name.trim() });
+          return this.getCustomer(existing.id)!;
+        }
+        return existing;
+      }
+    }
+    return this.addCustomer({
+      name: name.trim() || '관리자 수기 예약',
+      phone: trimmedPhone,
+    });
+  }
+
+  addCustomer(data: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Customer {
+    const now = new Date().toISOString();
+    const newCustomer: Customer = {
+      ...data,
+      id: Date.now().toString(),
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.customers.push(newCustomer);
+    return newCustomer;
+  }
+
+  updateCustomer(id: string, updates: Partial<Omit<Customer, 'id'>>): Customer | null {
+    const index = this.customers.findIndex((c) => c.id === id);
+    if (index === -1) return null;
+    this.customers[index] = {
+      ...this.customers[index],
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    return this.customers[index];
+  }
+
+  /**
+   * userId로 고객을 찾거나, 없으면 생성 후 반환. 이름/전화번호가 있으면 갱신.
+   */
+  getOrCreateCustomerByUserId(
+    userId: string,
+    data: { name?: string; phone?: string; memo?: string }
+  ): Customer {
+    let customer = this.getCustomerByUserId(userId);
+    const now = new Date().toISOString();
+    if (!customer) {
+      customer = this.addCustomer({
+        name: data.name?.trim() || (userId.length > 8 ? userId.slice(0, 8) : userId),
+        phone: data.phone?.trim() || '',
+        userId,
+        memo: data.memo,
+      });
+    } else {
+      const updates: Partial<Customer> = { updatedAt: now };
+      if (data.name !== undefined && data.name.trim()) updates.name = data.name.trim();
+      if (data.phone !== undefined) updates.phone = data.phone.trim();
+      if (data.memo !== undefined) updates.memo = data.memo;
+      if (Object.keys(updates).length > 1) {
+        const updated = this.updateCustomer(customer.id, updates);
+        if (updated) customer = updated;
+      }
+    }
+    return customer;
+  }
+
   /**
    * 특정 객실이 주어진 기간 동안 재고 내에서 예약 가능한지 여부를 체크
    * - 숙박: 체크인 포함, 체크아웃 당일은 제외하는 일반 호텔 룰
@@ -548,8 +652,14 @@ class DataStore {
     return this.chatHistories.find(history => history.id === id);
   }
 
+  getChatHistoryByCustomerId(customerId: string): ChatHistory | undefined {
+    return this.chatHistories.find((h) => h.customerId === customerId);
+  }
+
+  /** 카카오 userId로 대화 내역 조회 (Customer.userId → customerId → ChatHistory) */
   getChatHistoryByUserId(userId: string): ChatHistory | undefined {
-    return this.chatHistories.find(history => history.userId === userId);
+    const customer = this.getCustomerByUserId(userId);
+    return customer ? this.getChatHistoryByCustomerId(customer.id) : undefined;
   }
 
   addChatHistory(history: Omit<ChatHistory, 'id' | 'createdAt' | 'updatedAt'>): ChatHistory {
@@ -564,40 +674,30 @@ class DataStore {
     return newHistory;
   }
 
-  // 표시용 기본 이름: userId 앞 8자 (또는 전체)
-  private defaultUserName(userId: string): string {
-    return userId.length > 8 ? userId.slice(0, 8) : userId;
-  }
-
-  // 사용자별 대화 내역 찾기 또는 생성 (생성 시 슬라이스한 userId를 userName으로 저장)
-  getOrCreateChatHistory(userId: string, userName?: string): ChatHistory {
-    let history = this.chatHistories.find(h => h.userId === userId);
-    const defaultName = this.defaultUserName(userId);
-
+  /** customerId로 대화 내역 찾기 또는 생성 */
+  getOrCreateChatHistoryByCustomerId(customerId: string): ChatHistory {
+    let history = this.getChatHistoryByCustomerId(customerId);
     if (!history) {
       const now = new Date().toISOString();
       history = {
         id: Date.now().toString(),
-        userId,
-        userName: userName?.trim() || defaultName,
+        customerId,
         messages: [],
         createdAt: now,
         updatedAt: now,
       };
       this.chatHistories.push(history);
-    } else {
-      if (userName?.trim() && history.userName !== userName.trim()) {
-        history.userName = userName.trim();
-      } else if (!history.userName?.trim()) {
-        // 기존 내역에 이름이 없으면 슬라이스한 값을 저장
-        history.userName = defaultName;
-      }
     }
-
     return history;
   }
 
-  // 대화 내역에 메시지 추가
+  /** 카카오 userId로 대화 내역 찾기 또는 생성 (고객 생성 후 customerId 기준으로 생성) */
+  getOrCreateChatHistory(userId: string, userName?: string): ChatHistory {
+    const customer = this.getOrCreateCustomerByUserId(userId, { name: userName });
+    return this.getOrCreateChatHistoryByCustomerId(customer.id);
+  }
+
+  // 대화 내역에 메시지 추가 (userId → Customer → ChatHistory)
   addMessageToHistory(
     userId: string,
     message: Omit<ChatMessage, 'id' | 'timestamp'>
@@ -618,16 +718,14 @@ class DataStore {
   }
 
   // 대화 내역 업데이트
-  updateChatHistory(id: string, updates: Partial<ChatHistory>): ChatHistory | null {
-    const index = this.chatHistories.findIndex(h => h.id === id);
+  updateChatHistory(id: string, updates: Partial<Pick<ChatHistory, 'messages'>>): ChatHistory | null {
+    const index = this.chatHistories.findIndex((h) => h.id === id);
     if (index === -1) return null;
-    
     this.chatHistories[index] = {
       ...this.chatHistories[index],
       ...updates,
       updatedAt: new Date().toISOString(),
     };
-    
     return this.chatHistories[index];
   }
 

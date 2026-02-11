@@ -72,10 +72,10 @@ export function formatStayLabel(checkIn: string | Date, checkOut: string | Date)
  * - pending, confirmed 상태만 포함
  * - 해당 날짜가 숙박 기간에 포함되면 포함 (대실 포함)
  */
-export function getEffectiveReservationsForDate(
-  reservations: Reservation[],
+export function getEffectiveReservationsForDate<T extends Reservation>(
+  reservations: T[],
   date: Date
-): Reservation[] {
+): T[] {
   const dayStart = startOfDay(date);
   const dayEnd = new Date(dayStart);
   dayEnd.setDate(dayEnd.getDate() + 1);

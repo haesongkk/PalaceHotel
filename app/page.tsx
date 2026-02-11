@@ -19,7 +19,7 @@ import {
 } from 'recharts';
 import Layout from '@/components/Layout';
 import { getEffectiveReservationsForDate, formatStayLabel } from '@/lib/reservation-utils';
-import type { Reservation, ReservationStatus, ReservationType, Room, RoomInventoryAdjustment } from '@/types';
+import type { Reservation, ReservationWithGuest, ReservationStatus, ReservationType, Room, RoomInventoryAdjustment } from '@/types';
 
 const statusLabels: Record<ReservationStatus, string> = {
   pending: '대기',
@@ -119,7 +119,7 @@ function KpiRow({ metrics }: { metrics: DashboardMetrics }) {
 }
 
 type TodayReservationsProps = {
-  reservations: Reservation[];
+  reservations: ReservationWithGuest[];
   rooms: Room[];
   reservationTypes: ReservationType[];
   selectedDateKey: string;
@@ -777,7 +777,7 @@ function calculateMetrics(reservations: Reservation[], rooms: Room[]): Dashboard
   };
 }
 
-function buildTodoItems(reservations: Reservation[], rooms: Room[]): TodoItem[] {
+function buildTodoItems(reservations: ReservationWithGuest[], rooms: Room[]): TodoItem[] {
   const today = getTodayDateString();
 
   const getRoomLabel = (roomId: string) => {
@@ -806,7 +806,7 @@ function buildTodoItems(reservations: Reservation[], rooms: Room[]): TodoItem[] 
   // 2) 고객 취소인데 미확인(cancelled_by_guest + guestCancellationConfirmed=false)
   reservations
     .filter(
-      (r) => r.status === 'cancelled_by_guest' && (r as any).guestCancellationConfirmed === false,
+      (r) => r.status === 'cancelled_by_guest' && !r.guestCancellationConfirmed,
     )
     .forEach((r) => {
       todos.push({
@@ -995,11 +995,11 @@ function buildOccupancyAdr(
 }
 
 export default function Dashboard() {
-  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [reservations, setReservations] = useState<ReservationWithGuest[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [reservationTypes, setReservationTypes] = useState<ReservationType[]>([]);
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
-  const [todayReservations, setTodayReservations] = useState<Reservation[]>([]);
+  const [todayReservations, setTodayReservations] = useState<ReservationWithGuest[]>([]);
   const [todoItems, setTodoItems] = useState<TodoItem[]>([]);
   const [reservationTrend, setReservationTrend] = useState<ReservationTrendPoint[]>([]);
   const [occupancyAdr, setOccupancyAdr] = useState<OccupancyAdrPoint[]>([]);
@@ -1019,7 +1019,7 @@ export default function Dashboard() {
           fetch('/api/reservation-types'),
           fetch(`/api/inventory-adjustments?date=${encodeURIComponent(todayKey)}`),
         ]);
-        const reservationsData: Reservation[] = await reservationsRes.json();
+        const reservationsData: ReservationWithGuest[] = await reservationsRes.json();
         const roomsData: Room[] = await roomsRes.json();
         const typesData: ReservationType[] = await typesRes.json();
         const adjustmentsJson: { items?: RoomInventoryAdjustment[] } = await adjustmentsRes.json();

@@ -22,6 +22,21 @@ export interface Room {
   stayCheckOut: string; // 숙박 퇴실시간 (HH:mm)
 }
 
+// 고객 (예약/채팅과 분리하여 관리)
+export interface Customer {
+  id: string;
+  /** 표시 이름 */
+  name: string;
+  /** 연락처 */
+  phone: string;
+  /** 카카오 채널 사용자 ID (대화 내역·예약 연결용) */
+  userId?: string;
+  /** 관리자 메모 */
+  memo?: string;
+  createdAt: string; // ISO date string
+  updatedAt: string; // ISO date string
+}
+
 // 예약 상태
 export type ReservationStatus =
   | 'pending'           // 대기
@@ -42,11 +57,8 @@ export interface ReservationType {
 export interface Reservation {
   id: string;
   roomId: string;
-  /** 카카오 예약 시 카카오 userId가 들어갈 수 있음. 표시용 이름은 userName 등 별도 표시 권장 */
-  guestName: string;
-  guestPhone: string;
-  /** 카카오 채널로 들어온 예약인 경우 카카오 사용자 ID (대화 내역 연결용) */
-  userId?: string;
+  /** 고객 정보는 항상 customerId로 Customer에서 조회 */
+  customerId: string;
   /** 예약 생성 경로 (지금은 카카오/관리자 수기 정도만 구분) */
   source?: 'kakao' | 'manual';
   /** 관리자 정의 예약 타입 ID (수기 예약용). 카톡 예약은 항상 undefined */
@@ -61,6 +73,13 @@ export interface Reservation {
   /** 고객이 직접 예약을 취소한 경우, 관리자가 해당 취소를 확인했는지 여부 */
   guestCancellationConfirmed?: boolean;
 }
+
+/** API 응답용: 예약 + customerId로 조회한 고객 정보 (화면 표시용) */
+export type ReservationWithGuest = Reservation & {
+  guestName: string;
+  guestPhone: string;
+  userId?: string;
+};
 
 // 임시 예약 정보 타입 (전화번호 입력 대기 중)
 export interface PendingReservation {
@@ -99,19 +118,22 @@ export interface ChatbotMessage {
   updatedAt: string;
 }
 
-// 카카오톡 대화 내역 타입
+// 카카오톡 대화 내역 타입 (고객 정보는 customerId로 Customer에서 조회)
 export interface ChatHistory {
   id: string;
-  userId: string; // 카카오톡 사용자 ID
-  userName?: string;
-  /** 유저별 저장 전화번호 (최초 1회 입력 후 재사용, 관리자에서 수정 가능) */
-  userPhone?: string;
-  /** 관리자 메모 */
-  memo?: string;
+  customerId: string;
   messages: ChatMessage[];
   createdAt: string;
   updatedAt: string;
 }
+
+/** API 응답용: 대화 내역 + customerId로 조회한 고객 정보 (화면 표시용) */
+export type ChatHistoryWithCustomer = ChatHistory & {
+  userId: string;
+  userName?: string;
+  userPhone?: string;
+  memo?: string;
+};
 
 // 카카오톡 대화 메시지 타입
 export interface ChatMessage {

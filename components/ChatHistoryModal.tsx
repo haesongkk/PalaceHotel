@@ -1,15 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ChatHistory, ChatMessage } from '@/types';
+import { ChatHistoryWithCustomer, ChatMessage } from '@/types';
 import AppModal from '@/components/AppModal';
 import ChatSendPanel from '@/components/ChatSendPanel';
 
 interface ChatHistoryModalProps {
-  history: ChatHistory;
+  history: ChatHistoryWithCustomer;
   onClose: () => void;
   /** 유저 이름/전화번호/메모 저장 후 호출 (갱신된 history 전달) */
-  onSaved?: (updated: ChatHistory) => void | Promise<void>;
+  onSaved?: (updated: ChatHistoryWithCustomer) => void | Promise<void>;
   /** 채팅/알림톡 전송 후 대화 내역 갱신 시 호출 */
   onSent?: () => void;
 }

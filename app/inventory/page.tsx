@@ -10,7 +10,7 @@ import {
   toDateKey,
   formatStayLabel,
 } from '@/lib/reservation-utils';
-import type { Reservation, ReservationStatus, Room, DayOfWeek, ReservationType, RoomInventoryAdjustment } from '@/types';
+import type { Reservation, ReservationWithGuest, ReservationStatus, Room, DayOfWeek, ReservationType, RoomInventoryAdjustment } from '@/types';
 import { getDailyRoomAdjustedInventory } from '@/lib/inventory-utils';
 import ReservationConversationPanel from '@/components/ReservationConversationPanel';
 
@@ -107,7 +107,7 @@ function formatKoreanDate(date: Date): string {
 
 function getDailyInventorySummary(
   rooms: Room[],
-  reservations: Reservation[],
+  reservations: ReservationWithGuest[],
   date: Date,
   adjustmentsForDate: RoomInventoryAdjustment[],
 ): InventorySummary {
@@ -141,7 +141,7 @@ function getDailyInventorySummary(
 
 function getRoomDailyUsage(
   room: Room,
-  reservations: Reservation[],
+  reservations: ReservationWithGuest[],
   date: Date,
   adjustmentsForDate: RoomInventoryAdjustment[],
 ): { sold: number; remaining: number } {
@@ -162,10 +162,10 @@ function toISODateFromInput(value: string | null): string | null {
 
 export default function InventoryPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [reservations, setReservations] = useState<ReservationWithGuest[]>([]);
   const [reservationTypes, setReservationTypes] = useState<ReservationType[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+  const [selectedReservation, setSelectedReservation] = useState<ReservationWithGuest | null>(null);
 
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
@@ -211,7 +211,7 @@ export default function InventoryPage() {
         fetch('/api/reservation-types'),
       ]);
       const roomsData: Room[] = await roomsRes.json();
-      const reservationsData: Reservation[] = await reservationsRes.json();
+      const reservationsData: ReservationWithGuest[] = await reservationsRes.json();
       const typesData: ReservationType[] = await typesRes.json();
       setRooms(roomsData);
       setReservations(reservationsData);
@@ -435,7 +435,7 @@ export default function InventoryPage() {
     }
   };
 
-  const handleDeleteManualReservation = async (reservation: Reservation) => {
+  const handleDeleteManualReservation = async (reservation: ReservationWithGuest) => {
     if (reservation.source !== 'manual') return;
     if (!confirm('이 수기 예약을 완전히 삭제하시겠습니까?')) return;
 
@@ -596,7 +596,7 @@ export default function InventoryPage() {
     }
   };
 
-  const handleReservationClick = (reservation: Reservation, e: React.MouseEvent) => {
+  const handleReservationClick = (reservation: ReservationWithGuest, e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
     setSelectedReservation(reservation);
   };

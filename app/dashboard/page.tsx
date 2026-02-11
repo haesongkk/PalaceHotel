@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import Layout from '@/components/Layout';
 import { getEffectiveReservationsForDate, formatStayLabel } from '@/lib/reservation-utils';
-import type { Reservation, ReservationStatus, ReservationType, Room } from '@/types';
+import type { Reservation, ReservationWithGuest, ReservationStatus, ReservationType, Room } from '@/types';
 
 const statusLabels: Record<ReservationStatus, string> = {
   pending: '대기',
@@ -83,7 +83,7 @@ function KpiRow({ metrics }: { metrics: DashboardMetrics }) {
 }
 
 type TodayReservationsProps = {
-  reservations: Reservation[];
+  reservations: ReservationWithGuest[];
   rooms: Room[];
   reservationTypes: ReservationType[];
 };
@@ -430,11 +430,11 @@ function calculateMetrics(reservations: Reservation[], rooms: Room[]): Dashboard
 }
 
 function DashboardPage() {
-  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [reservations, setReservations] = useState<ReservationWithGuest[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [reservationTypes, setReservationTypes] = useState<ReservationType[]>([]);
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
-  const [todayReservations, setTodayReservations] = useState<Reservation[]>([]);
+  const [todayReservations, setTodayReservations] = useState<ReservationWithGuest[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -445,7 +445,7 @@ function DashboardPage() {
           fetch('/api/rooms'),
           fetch('/api/reservation-types'),
         ]);
-        const reservationsData: Reservation[] = await reservationsRes.json();
+        const reservationsData: ReservationWithGuest[] = await reservationsRes.json();
         const roomsData: Room[] = await roomsRes.json();
         const typesData: ReservationType[] = await typesRes.json();
         setReservations(reservationsData);

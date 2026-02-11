@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Reservation, ChatHistory, ChatMessage, Room } from '@/types';
+import { Reservation, ReservationWithGuest, ChatHistory, ChatHistoryWithCustomer, ChatMessage, Room } from '@/types';
 import ChatSendPanel from '@/components/ChatSendPanel';
 import { formatStayLabel } from '@/lib/reservation-utils';
 
@@ -50,15 +50,15 @@ function filterMessagesByReservation(messages: ChatMessage[], reservationCreated
 }
 
 export type ConversationPanelSource =
-  | { mode: 'reservation'; reservation: Reservation }
-  | { mode: 'chat-history'; history: ChatHistory };
+  | { mode: 'reservation'; reservation: ReservationWithGuest }
+  | { mode: 'chat-history'; history: ChatHistoryWithCustomer };
 
 export interface ConversationPanelProps {
   source: ConversationPanelSource;
   rooms: Room[];
   onClose: () => void;
   onStatusChange?: () => void;
-  onSaved?: (updated: ChatHistory) => void | Promise<void>;
+  onSaved?: (updated: ChatHistoryWithCustomer) => void | Promise<void>;
   onSent?: () => void;
 }
 
@@ -70,8 +70,8 @@ export default function ConversationPanel({
   onSaved,
   onSent,
 }: ConversationPanelProps) {
-  const [history, setHistory] = useState<ChatHistory | null>(source.mode === 'chat-history' ? source.history : null);
-  const [reservation, setReservation] = useState<Reservation | null>(source.mode === 'reservation' ? source.reservation : null);
+  const [history, setHistory] = useState<ChatHistoryWithCustomer | null>(source.mode === 'chat-history' ? source.history : null);
+  const [reservation, setReservation] = useState<ReservationWithGuest | null>(source.mode === 'reservation' ? source.reservation : null);
   const [showAllMessages, setShowAllMessages] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(source.mode === 'reservation');
   const [loadingReservation, setLoadingReservation] = useState(source.mode === 'chat-history');
@@ -103,7 +103,7 @@ export default function ConversationPanel({
       setLoadingReservation(true);
       fetch('/api/reservations')
         .then((res) => (res.ok ? res.json() : []))
-        .then((list: Reservation[]) => {
+        .then((list: ReservationWithGuest[]) => {
           const forUser = list.filter((r) => r.userId === userId);
           const latest = forUser.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] ?? null;
           setReservation(latest);
@@ -160,7 +160,7 @@ export default function ConversationPanel({
       });
       if (res.ok) {
         if (source.mode === 'chat-history') {
-          const data: Reservation[] = await fetch('/api/reservations').then((r) => (r.ok ? r.json() : []));
+          const data: ReservationWithGuest[] = await fetch('/api/reservations').then((r) => (r.ok ? r.json() : []));
           const next = data.find((r) => r.id === activeReservation.id) ?? null;
           setReservation(next);
         }

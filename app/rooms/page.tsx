@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Layout from '@/components/Layout';
-import { Room, DayOfWeek, Reservation, ReservationStatus, RoomInventoryAdjustment } from '@/types';
+import { Room, DayOfWeek, Reservation, ReservationWithGuest, ReservationStatus, RoomInventoryAdjustment } from '@/types';
 import RoomModal from '@/components/RoomModal';
 import { getDailyRoomAdjustedInventory, getDailyRoomRemaining, getDailyRoomSoldCount } from '@/lib/inventory-utils';
 
@@ -129,7 +129,7 @@ function getRoomDailyUsage(
 
 export default function RoomsPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [reservations, setReservations] = useState<ReservationWithGuest[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [loading, setLoading] = useState(true);
@@ -154,7 +154,7 @@ export default function RoomsPage() {
         fetch('/api/reservations'),
       ]);
       const roomsData: Room[] = await roomsRes.json();
-      const reservationsData: Reservation[] = await reservationsRes.json();
+      const reservationsData: ReservationWithGuest[] = await reservationsRes.json();
       setRooms(roomsData);
       setReservations(reservationsData);
     } catch (error) {

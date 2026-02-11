@@ -189,9 +189,10 @@ function createHistoryItem(reservation: Reservation): KakaoListItem {
 }
 
 function createHistoryList(userId: string): KakaoOutputComponent {
-  const reservations = dataStore
-    .getReservations()
-    .filter((reservation) => reservation.userId && reservation.userId === userId);
+  const customer = dataStore.getCustomerByUserId(userId);
+  const reservations = customer
+    ? dataStore.getReservations().filter((r) => r.customerId === customer.id)
+    : [];
 
   if (reservations.length === 0) {
     return simpleText('예약 내역이 없습니다.');
@@ -678,9 +679,10 @@ function handleRoomSelection(req: KakaoSkillRequest): KakaoSkillResponse {
     totalPrice: extra.totalPrice as number,
   });
 
-  // 유저별 저장 전화번호가 있으면 전화번호 입력 단계 스킵 후 바로 예약 완료
+  // 유저별 저장 전화번호가 있으면 전화번호 입력 단계 스킵 후 바로 예약 완료 (고객 정보는 Customer에서 조회)
   const history = dataStore.getOrCreateChatHistory(userId);
-  const storedPhone = history.userPhone?.trim();
+  const customer = dataStore.getCustomer(history.customerId);
+  const storedPhone = customer?.phone?.trim();
   if (storedPhone && isValidPhoneNumber(storedPhone)) {
     const pending = dataStore.getPendingReservation(userId);
     if (pending) {
@@ -712,11 +714,9 @@ function handleReservationWithPhone(
   phoneNumber: string
 ): KakaoSkillResponse {
   const userId = req.userRequest?.user?.id ?? '';
-  const history = dataStore.getChatHistoryByUserId(userId);
-
-  // 예약 요청 저장 (userId로 대화 내역과 연결). 저장된 이름이 있으면 사용
+  const existingCustomer = dataStore.getCustomerByUserId(userId);
   const guestNameDisplay =
-    (history?.userName?.trim()) || (userId.length > 8 ? userId.slice(0, 8) : userId);
+    existingCustomer?.name?.trim() || (userId.length > 8 ? userId.slice(0, 8) : userId);
 
   // 재고 체크: 객실 타입별 재고를 초과하는 경우 예약 불가 처리
   const isAvailable = dataStore.isRoomAvailable(
@@ -741,11 +741,15 @@ function handleReservationWithPhone(
     };
   }
 
+  // 고객 마스터 생성/갱신 (이름·전화번호), 예약은 customerId만 보관
+  const customer = dataStore.getOrCreateCustomerByUserId(userId, {
+    name: guestNameDisplay,
+    phone: phoneNumber,
+  });
+
   const reservation = dataStore.addReservation({
     roomId: pendingReservation.roomId,
-    guestName: guestNameDisplay,
-    guestPhone: phoneNumber,
-    userId, // 원본 그대로 저장
+    customerId: customer.id,
     source: 'kakao',
     checkIn: pendingReservation.checkIn,
     checkOut: pendingReservation.checkOut,
@@ -755,11 +759,6 @@ function handleReservationWithPhone(
 
   // 임시 예약 정보 삭제
   dataStore.deletePendingReservation(userId);
-
-  // 유저별 전화번호 저장 (다음 예약부터 전화번호 입력 생략)
-  if (history) {
-    dataStore.updateChatHistory(history.id, { userPhone: phoneNumber });
-  }
 
   // 관리자에게 알림톡 발송 (비동기, 에러는 조용히 처리)
   sendReservationNotificationAlimtalk(reservation.id).catch((error) => {

@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Layout from '@/components/Layout';
 import { formatStayLabel } from '@/lib/reservation-utils';
-import { Reservation, ReservationStatus, Room, ReservationType } from '@/types';
+import { Reservation, ReservationWithGuest, ReservationStatus, Room, ReservationType } from '@/types';
 import ReservationConversationPanel from '@/components/ReservationConversationPanel';
 
 const statusLabels: Record<ReservationStatus, string> = {
@@ -34,10 +34,10 @@ const FILTER_TABS: { key: FilterTab; label: string }[] = [
   { key: 'cancelled_by_admin', label: '관리자 취소' },
 ];
 
-function sortReservations(list: Reservation[], activeFilter: FilterTab): Reservation[] {
-  const byCreatedAsc = (a: Reservation, b: Reservation) =>
+function sortReservations<T extends Reservation>(list: T[], activeFilter: FilterTab): T[] {
+  const byCreatedAsc = (a: T, b: T) =>
     new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-  const byCreatedDesc = (a: Reservation, b: Reservation) =>
+  const byCreatedDesc = (a: T, b: T) =>
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
 
   // 고객 취소 탭: 미확인(guestCancellationConfirmed !== true) 먼저, 오래된순
@@ -68,12 +68,12 @@ function sortReservations(list: Reservation[], activeFilter: FilterTab): Reserva
 }
 
 export default function ReservationsPage() {
-  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [reservations, setReservations] = useState<ReservationWithGuest[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [reservationTypes, setReservationTypes] = useState<ReservationType[]>([]);
   const [filter, setFilter] = useState<FilterTab>('all');
   const [kakaoOnly, setKakaoOnly] = useState(false);
-  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+  const [selectedReservation, setSelectedReservation] = useState<ReservationWithGuest | null>(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ message: string } | null>(null);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
@@ -93,7 +93,7 @@ export default function ReservationsPage() {
         fetch('/api/rooms'),
         fetch('/api/reservation-types'),
       ]);
-      const reservationsData: Reservation[] = await reservationsRes.json();
+      const reservationsData: ReservationWithGuest[] = await reservationsRes.json();
       const roomsData: Room[] = await roomsRes.json();
       const typesData: ReservationType[] = await typesRes.json();
       // 모든 예약을 표시 (카카오 + 수기 예약 등)
@@ -133,7 +133,7 @@ export default function ReservationsPage() {
     pollIntervalRef.current = setInterval(async () => {
       try {
         const res = await fetch('/api/reservations');
-        const data: Reservation[] = await res.json();
+        const data: ReservationWithGuest[] = await res.json();
         const currentPendingIds = new Set(data.filter((r) => r.status === 'pending').map((r) => r.id));
         const prev = lastPendingIdsRef.current;
         const hasNewPending = [...currentPendingIds].some((id) => !prev.has(id));
@@ -173,7 +173,7 @@ export default function ReservationsPage() {
   const getReservationType = (reservationTypeId?: string) =>
     reservationTypeId ? reservationTypes.find((t) => t.id === reservationTypeId) : undefined;
 
-  const handleRowClick = (reservation: Reservation, e: React.MouseEvent) => {
+  const handleRowClick = (reservation: ReservationWithGuest, e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
     setSelectedReservation(reservation);
   };
