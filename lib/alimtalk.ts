@@ -77,6 +77,21 @@ async function aligoPost<T = unknown>(
   } catch {
     throw new Error(`알리고 API 응답 파싱 실패: ${text.substring(0, 200)}`);
   }
+  // 디버깅을 위해 최소한의 정보만 로그로 남긴다.
+  // (민감 정보나 전문 응답은 찍지 않음)
+  if (data.code !== 0) {
+    console.error('[알리고 API 오류]', {
+      path,
+      code: data.code,
+      message: data.message,
+    });
+  } else {
+    console.log('[알리고 API 호출 성공]', {
+      path,
+      code: data.code,
+      message: data.message,
+    });
+  }
   return data;
 }
 
