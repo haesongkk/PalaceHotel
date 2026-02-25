@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { handleKakaoSkillRequest } from '@/lib/kakao-skill-handler';
-import { dataStore } from '@/lib/store';
+import { dataStore } from '@/lib/db-store';
 import type { ChatMessage } from '@/types';
 import type { KakaoSkillRequest, KakaoSkillResponse } from '@/types/kakao';
 

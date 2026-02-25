@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { dataStore } from '@/lib/store';
+import { dataStore } from '@/lib/db-store';
 
 /**
  * 객실 이미지 서빙 API

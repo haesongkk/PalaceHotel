@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { dataStore, getAndClearPendingAdminMessage } from '@/lib/store';
+import { dataStore, getAndClearPendingAdminMessage } from '@/lib/db-store';
 import type { ChatMessage } from '@/types';
 import type { KakaoSkillRequest, KakaoSkillResponse } from '@/types/kakao';
 

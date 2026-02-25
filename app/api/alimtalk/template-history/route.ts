@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { dataStore } from '@/lib/store';
+import { dataStore } from '@/lib/db-store';
 
 /**
  * GET: displayName 쿼리로 해당 템플릿의 이전 버전 목록 조회

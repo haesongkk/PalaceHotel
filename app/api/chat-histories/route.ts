@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { dataStore } from '@/lib/store';
+import { dataStore } from '@/lib/db-store';
 import type { ChatHistory } from '@/types';
 
 /** 대화 내역 반환 시 고객 정보를 customerId로 조회해 userId/userName/userPhone/memo 보강 */

@@ -734,6 +734,45 @@ export const dbStore = {
     });
     return result.count;
   },
+
+  async getAdminPhones(): Promise<string[]> {
+    const key = 'alimtalk_admin_phones';
+    const row = await prisma.appSetting.findUnique({
+      where: { key },
+    });
+    if (!row?.value) return [];
+    try {
+      const arr = JSON.parse(row.value) as unknown;
+      return Array.isArray(arr) ? arr.filter((x): x is string => typeof x === 'string').map((p) => p.replace(/\D/g, '')) : [];
+    } catch {
+      return [];
+    }
+  },
+
+  async setAdminPhones(phones: string[]): Promise<void> {
+    const key = 'alimtalk_admin_phones';
+    const normalized = phones.filter((p) => p.trim()).map((p) => p.trim().replace(/\D/g, ''));
+    await prisma.appSetting.upsert({
+      where: { key },
+      create: { key, value: JSON.stringify(normalized) },
+      update: { value: JSON.stringify(normalized) },
+    });
+  },
 };
 
+export const dataStore = dbStore;
 export { CHATBOT_SITUATIONS, SITUATION_DESCRIPTIONS };
+
+// 관리자 채팅 입력: 모듈 레벨 Map (Next.js 번들/캐시 이슈 회피)
+const pendingAdminMessagesMap = new Map<string, string>();
+
+export function setPendingAdminMessage(userId: string, text: string): void {
+  pendingAdminMessagesMap.set(String(userId), text);
+}
+
+export function getAndClearPendingAdminMessage(userId: string): string | null {
+  const key = String(userId);
+  const text = pendingAdminMessagesMap.get(key) ?? null;
+  pendingAdminMessagesMap.delete(key);
+  return text;
+}

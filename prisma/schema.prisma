@@ -142,3 +142,9 @@ model TemplateActive {
   displayName String @id
   tplCode     String
 }
+
+// 앱 설정 (키-값, 예: 알림톡 수신 관리자 번호 목록)
+model AppSetting {
+  key   String @id
+  value String
+}

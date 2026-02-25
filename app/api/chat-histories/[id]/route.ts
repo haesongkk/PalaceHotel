@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { dataStore } from '@/lib/store';
+import { dataStore } from '@/lib/db-store';
 import type { ChatHistory } from '@/types';
 
 async function expandChatHistoryWithCustomer(h: ChatHistory) {

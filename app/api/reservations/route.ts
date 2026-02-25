@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { dataStore } from '@/lib/store';
+import { dataStore } from '@/lib/db-store';
 import type { Reservation } from '@/types';
 
 /** 예약 목록 반환 시 고객 정보를 customerId로 조회해 guestName/guestPhone/userId 보강 */

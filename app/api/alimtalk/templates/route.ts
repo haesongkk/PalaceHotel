@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTemplateList, createTemplate, requestTemplateApproval } from '@/lib/alimtalk';
-import { dataStore } from '@/lib/store';
+import { dataStore } from '@/lib/db-store';
 import { toInternalTemplateName } from '@/lib/alimtalk-config';
 
 /**

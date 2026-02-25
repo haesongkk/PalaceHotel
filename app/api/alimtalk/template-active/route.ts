@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { dataStore } from '@/lib/store';
+import { dataStore } from '@/lib/db-store';
 
 /**
  * PUT: 활성 템플릿 설정 (이전 메시지에서 "이걸로 사용" 선택 시)

@@ -1,4 +1,4 @@
-import { dataStore } from '@/lib/store';
+import { dataStore } from '@/lib/db-store';
 import { sendReservationNotificationAlimtalk, sendReservationCancelledAlimtalk } from '@/lib/alimtalk';
 import type { ChatbotSituation, DayOfWeek, Room, Reservation, ReservationStatus, DayPrices } from '@/types';
 import type {

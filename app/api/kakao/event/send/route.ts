@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendKakaoEvent } from '@/lib/kakao-event';
-import { setPendingAdminMessage } from '@/lib/store';
+import { setPendingAdminMessage } from '@/lib/db-store';
 
 /**
  * POST: 카카오 이벤트 API 발송

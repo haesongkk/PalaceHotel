@@ -278,7 +278,7 @@ function formatDateForAlimtalk(dateString: string): string {
   return `${year}년 ${month}월 ${day}일`;
 }
 
-import { dataStore } from '@/lib/store';
+import { dataStore } from '@/lib/db-store';
 import { toInternalTemplateName } from '@/lib/alimtalk-config';
 import type { ChatMessage } from '@/types';
 
@@ -335,11 +335,12 @@ export async function getTemplateCodeByDisplayName(displayName: string): Promise
 
 /**
  * 예약 요청 알림 (관리자에게 알림톡)
+ * 관리자 페이지 설정에 등록된 번호들에 각각 발송
  */
 export async function sendReservationNotificationAlimtalk(reservationId: string): Promise<SendAlimtalkResult> {
-  const adminPhone = process.env.ALIGO_ADMIN_PHONE;
-  if (!adminPhone) {
-    console.warn('[알림톡] 관리자 전화번호(ALIGO_ADMIN_PHONE)가 설정되지 않아 알림톡을 발송하지 않습니다.');
+  const adminPhones = await dataStore.getAdminPhones();
+  if (adminPhones.length === 0) {
+    console.warn('[알림톡] 관리자 전화번호가 설정되지 않아 알림톡을 발송하지 않습니다. 관리자 페이지 > 설정에서 등록해 주세요.');
     return { code: -1, message: 'ADMIN_PHONE_NOT_SET' };
   }
   const tplCode = await getTemplateCodeByDisplayName(DISPLAY_NAME_RESERVATION_REQUEST);
@@ -351,12 +352,16 @@ export async function sendReservationNotificationAlimtalk(reservationId: string)
   }
   const content = await getTemplateContent(tplCode);
   const message = content ?? '[팰리스호텔] 새로운 예약 요청이 있습니다. 관리자 채널에서 확인해 주세요.';
-  return sendAlimtalk({
-    tpl_code: tplCode,
-    receiver: adminPhone,
-    subject: '팰리스호텔 예약 알림',
-    message: message.replace(/#{reservationId}/g, reservationId),
-  });
+  let lastResult: SendAlimtalkResult = { code: -1, message: 'NOT_SENT' };
+  for (const receiver of adminPhones) {
+    lastResult = await sendAlimtalk({
+      tpl_code: tplCode,
+      receiver,
+      subject: '팰리스호텔 예약 알림',
+      message: message.replace(/#{reservationId}/g, reservationId),
+    });
+  }
+  return lastResult;
 }
 
 /**
@@ -435,6 +440,7 @@ export async function sendReservationStatusAlimtalk(
 
 /**
  * 예약 취소 알림 (고객이 취소했을 때 관리자에게)
+ * 관리자 페이지 설정에 등록된 번호들에 각각 발송
  */
 export async function sendReservationCancelledAlimtalk(
   reservationId: string,
@@ -444,9 +450,9 @@ export async function sendReservationCancelledAlimtalk(
     checkOut: string;
   }
 ): Promise<SendAlimtalkResult> {
-  const adminPhone = process.env.ALIGO_ADMIN_PHONE;
-  if (!adminPhone) {
-    console.warn('[알림톡] 관리자 전화번호(ALIGO_ADMIN_PHONE)가 설정되지 않아 취소 알림을 발송하지 않습니다.');
+  const adminPhones = await dataStore.getAdminPhones();
+  if (adminPhones.length === 0) {
+    console.warn('[알림톡] 관리자 전화번호가 설정되지 않아 취소 알림을 발송하지 않습니다. 관리자 페이지 > 설정에서 등록해 주세요.');
     return { code: -1, message: 'ADMIN_PHONE_NOT_SET' };
   }
   const tplCode = await getTemplateCodeByDisplayName(DISPLAY_NAME_RESERVATION_CANCEL_ADMIN);
@@ -463,12 +469,16 @@ export async function sendReservationCancelledAlimtalk(
       .replace(/#{roomType}/g, reservationInfo.roomType)
       .replace(/#{checkIn}/g, formatDateForAlimtalk(reservationInfo.checkIn))
       .replace(/#{checkOut}/g, formatDateForAlimtalk(reservationInfo.checkOut));
-  return sendAlimtalk({
-    tpl_code: tplCode,
-    receiver: adminPhone,
-    subject: '예약 취소 알림',
-    message,
-  });
+  let lastResult: SendAlimtalkResult = { code: -1, message: 'NOT_SENT' };
+  for (const receiver of adminPhones) {
+    lastResult = await sendAlimtalk({
+      tpl_code: tplCode,
+      receiver,
+      subject: '예약 취소 알림',
+      message,
+    });
+  }
+  return lastResult;
 }
 
 /**
